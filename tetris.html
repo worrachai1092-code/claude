@@ -64,29 +64,136 @@
   #overlay {
     position: absolute;
     inset: 0;
-    background: rgba(10, 10, 20, 0.85);
+    background: rgba(10, 10, 20, 0.92);
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     border-radius: 8px;
     gap: 12px;
+    padding: 16px;
+    overflow: hidden;
   }
-  #overlay h1 { font-size: 34px; letter-spacing: 4px; }
-  #overlay p { color: #aaaacc; font-size: 15px; }
-  #overlay button {
-    margin-top: 8px;
-    padding: 12px 34px;
-    font-size: 17px;
+  #overlay.home-bg {
+    background:
+      radial-gradient(circle at 20% 15%, rgba(123, 47, 247, 0.45), transparent 45%),
+      radial-gradient(circle at 85% 30%, rgba(0, 229, 255, 0.35), transparent 45%),
+      radial-gradient(circle at 25% 80%, rgba(241, 7, 163, 0.40), transparent 45%),
+      radial-gradient(circle at 80% 85%, rgba(60, 242, 103, 0.30), transparent 40%),
+      rgba(10, 10, 20, 0.94);
+  }
+  .deco {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .deco span {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    opacity: 0.55;
+    box-shadow: 0 0 12px currentColor;
+    animation: drift linear infinite;
+  }
+  @keyframes drift {
+    0% { transform: translateY(640px) rotate(0deg); }
+    100% { transform: translateY(-60px) rotate(360deg); }
+  }
+  .screen {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+  }
+  .logo {
+    font-size: 40px;
+    font-weight: 900;
+    letter-spacing: 6px;
+    display: flex;
+  }
+  .logo span {
+    animation: float 2.2s ease-in-out infinite;
+    text-shadow: 0 0 16px currentColor, 0 0 34px currentColor;
+  }
+  .logo span:nth-child(1) { color: #00e5ff; animation-delay: 0s; }
+  .logo span:nth-child(2) { color: #ffd500; animation-delay: 0.15s; }
+  .logo span:nth-child(3) { color: #b537f2; animation-delay: 0.3s; }
+  .logo span:nth-child(4) { color: #3cf267; animation-delay: 0.45s; }
+  .logo span:nth-child(5) { color: #ff4d5a; animation-delay: 0.6s; }
+  .logo span:nth-child(6) { color: #ff9f1c; animation-delay: 0.75s; }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+  .screen h1 { font-size: 32px; letter-spacing: 4px; }
+  .screen p { color: #aaaacc; font-size: 15px; text-align: center; }
+  .home-high {
+    color: #ffd500;
+    font-size: 14px;
+    letter-spacing: 1px;
+    padding: 8px 20px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 213, 0, 0.55);
+    background: linear-gradient(135deg, rgba(255, 213, 0, 0.16), rgba(255, 159, 28, 0.16));
+    box-shadow: 0 0 14px rgba(255, 213, 0, 0.25);
+  }
+  .btn {
+    padding: 12px 0;
+    width: 190px;
+    font-size: 16px;
     font-weight: bold;
     color: #fff;
     background: linear-gradient(135deg, #7b2ff7, #f107a3);
     border: none;
     border-radius: 8px;
     cursor: pointer;
+    box-shadow: 0 4px 18px rgba(241, 7, 163, 0.45);
+    transition: transform 0.15s, filter 0.15s;
   }
-  #overlay button:hover { filter: brightness(1.2); }
+  .btn.secondary {
+    background: linear-gradient(135deg, #00b4d8, #3d7bff);
+    box-shadow: 0 4px 18px rgba(61, 123, 255, 0.45);
+  }
+  .btn:hover { filter: brightness(1.2); transform: scale(1.05); }
+  .howto-list {
+    font-size: 13px;
+    color: #aaaacc;
+    line-height: 2.1;
+    text-align: left;
+  }
+  .howto-list b {
+    color: #fff;
+    display: inline-block;
+    min-width: 70px;
+  }
   .board-holder { position: relative; }
+  #gearBtn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 42px;
+    height: 42px;
+    font-size: 22px;
+    line-height: 1;
+    background: rgba(26, 26, 46, 0.85);
+    border: 2px solid #2e2e4e;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.3s, filter 0.15s, border-color 0.15s;
+    z-index: 5;
+  }
+  #gearBtn:hover {
+    transform: rotate(90deg);
+    filter: brightness(1.35);
+    border-color: #7b2ff7;
+  }
   .hidden { display: none !important; }
 </style>
 </head>
@@ -114,10 +221,58 @@
 
   <div class="board-holder">
     <canvas id="board" width="300" height="600"></canvas>
+    <button id="gearBtn" class="hidden" title="พักเกม / กลับหน้าหลัก">⚙️</button>
     <div id="overlay">
-      <h1>TETRIS</h1>
-      <p>กด Start เพื่อเริ่มเล่น</p>
-      <button id="startBtn">Start</button>
+
+      <div class="deco" id="homeDeco">
+        <span style="background:#00e5ff;color:#00e5ff;left:6%;animation-duration:11s;animation-delay:-2s;"></span>
+        <span style="background:#ffd500;color:#ffd500;left:18%;animation-duration:14s;animation-delay:-7s;width:12px;height:12px;"></span>
+        <span style="background:#b537f2;color:#b537f2;left:30%;animation-duration:10s;animation-delay:-4s;"></span>
+        <span style="background:#3cf267;color:#3cf267;left:44%;animation-duration:16s;animation-delay:-9s;width:10px;height:10px;"></span>
+        <span style="background:#ff4d5a;color:#ff4d5a;left:58%;animation-duration:12s;animation-delay:-1s;"></span>
+        <span style="background:#3d7bff;color:#3d7bff;left:70%;animation-duration:15s;animation-delay:-6s;width:20px;height:20px;"></span>
+        <span style="background:#ff9f1c;color:#ff9f1c;left:82%;animation-duration:9s;animation-delay:-3s;width:12px;height:12px;"></span>
+        <span style="background:#00e5ff;color:#00e5ff;left:92%;animation-duration:13s;animation-delay:-8s;width:10px;height:10px;"></span>
+      </div>
+
+      <div class="screen" id="screen-home">
+        <div class="logo">
+          <span>T</span><span>E</span><span>T</span><span>R</span><span>I</span><span>S</span>
+        </div>
+        <div class="home-high">🏆 คะแนนสูงสุด: <span id="homeHighScore">0</span></div>
+        <button class="btn" id="btnStart">เริ่มเกม</button>
+        <button class="btn secondary" id="btnHowto">วิธีเล่น</button>
+      </div>
+
+      <div class="screen hidden" id="screen-howto">
+        <h1>วิธีเล่น</h1>
+        <div class="howto-list">
+          <b>← →</b> เลื่อนซ้าย/ขวา<br>
+          <b>↓</b> เลื่อนลงเร็ว<br>
+          <b>↑ / X</b> หมุนขวา<br>
+          <b>Z</b> หมุนซ้าย<br>
+          <b>Space</b> ทิ้งลงทันที<br>
+          <b>C</b> เก็บตัวหมาก<br>
+          <b>P</b> หยุดชั่วคราว
+        </div>
+        <p>เรียงบล็อกให้เต็มแถวเพื่อเก็บคะแนน<br>ยิ่งเลเวลสูง บล็อกยิ่งตกเร็ว!</p>
+        <button class="btn secondary" id="btnHowtoBack">กลับ</button>
+      </div>
+
+      <div class="screen hidden" id="screen-paused">
+        <h1>PAUSED</h1>
+        <p>กด P เพื่อเล่นต่อ</p>
+        <button class="btn" id="btnResume">เล่นต่อ</button>
+        <button class="btn secondary" id="btnPauseHome">หน้าหลัก</button>
+      </div>
+
+      <div class="screen hidden" id="screen-gameover">
+        <h1>GAME OVER</h1>
+        <p id="gameoverScore">คะแนน: 0</p>
+        <button class="btn" id="btnRetry">เล่นอีกครั้ง</button>
+        <button class="btn secondary" id="btnGameoverHome">หน้าหลัก</button>
+      </div>
+
     </div>
   </div>
 
@@ -152,7 +307,9 @@
   const holdCanvas = document.getElementById('holdCanvas');
   const hctx = holdCanvas.getContext('2d');
   const overlay = document.getElementById('overlay');
-  const startBtn = document.getElementById('startBtn');
+  const gearBtn = document.getElementById('gearBtn');
+
+  const SCREENS = ['screen-home', 'screen-howto', 'screen-paused', 'screen-gameover'];
 
   const COLORS = {
     I: '#00e5ff', O: '#ffd500', T: '#b537f2',
@@ -175,9 +332,30 @@
   let score, level, lines, highScore;
   let dropInterval, dropTimer, lastTime;
   let running = false, paused = false, gameOver = false;
+  let particles = [], clearing = null;
+
+  const FLASH_MS = 300, CLEAR_MS = 1000;
 
   highScore = +(localStorage.getItem('tetrisHighScore') || 0);
-  document.getElementById('highScore').textContent = highScore;
+
+  function showScreen(id) {
+    SCREENS.forEach(s => document.getElementById(s).classList.toggle('hidden', s !== id));
+    const isMenu = id === 'screen-home' || id === 'screen-howto';
+    overlay.classList.toggle('home-bg', isMenu);
+    document.getElementById('homeDeco').classList.toggle('hidden', !isMenu);
+    overlay.classList.remove('hidden');
+    gearBtn.classList.add('hidden');
+  }
+
+  function hideOverlay() {
+    overlay.classList.add('hidden');
+    gearBtn.classList.remove('hidden');
+  }
+
+  function updateHighScoreDisplays() {
+    document.getElementById('highScore').textContent = highScore;
+    document.getElementById('homeHighScore').textContent = highScore;
+  }
 
   function emptyGrid() {
     return Array.from({ length: ROWS }, () => Array(COLS).fill(null));
@@ -290,31 +468,56 @@
     current.shape.forEach((row, r) => row.forEach((v, c) => {
       if (v && current.y + r >= 0) grid[current.y + r][current.x + c] = current.type;
     }));
-    clearLines();
-    spawnPiece();
-    drawNext();
+    const fullRows = [];
+    for (let r = 0; r < ROWS; r++) {
+      if (grid[r].every(cell => cell)) fullRows.push(r);
+    }
+    if (fullRows.length) {
+      clearing = { rows: fullRows, t: 0, burst: false };
+      current = null;
+    } else {
+      spawnPiece();
+      drawNext();
+    }
   }
 
-  function clearLines() {
-    let cleared = 0;
-    for (let r = ROWS - 1; r >= 0; r--) {
-      if (grid[r].every(cell => cell)) {
-        grid.splice(r, 1);
-        grid.unshift(Array(COLS).fill(null));
-        cleared++;
-        r++;
+  function spawnRowParticles(rows) {
+    const N = 5;
+    const s = CELL / N;
+    rows.forEach(r => {
+      for (let c = 0; c < COLS; c++) {
+        const color = COLORS[grid[r][c]];
+        for (let pr = 0; pr < N; pr++) {
+          for (let pc = 0; pc < N; pc++) {
+            if (Math.random() < 0.35) continue;
+            particles.push({
+              x: c * CELL + pc * s,
+              y: r * CELL + pr * s,
+              size: s * (0.6 + Math.random() * 0.8),
+              color,
+              vx: (Math.random() - 0.5) * 190,
+              vy: -Math.random() * 160 - 15,
+              life: 1,
+              decay: 0.55 + Math.random() * 0.45
+            });
+          }
+        }
       }
+    });
+  }
+
+  function removeRows(rows) {
+    [...rows].sort((a, b) => b - a).forEach(r => grid.splice(r, 1));
+    for (let i = 0; i < rows.length; i++) grid.unshift(Array(COLS).fill(null));
+    const cleared = rows.length;
+    lines += cleared;
+    score += LINE_SCORES[cleared] * level;
+    const newLevel = Math.floor(lines / 10) + 1;
+    if (newLevel !== level) {
+      level = newLevel;
+      dropInterval = Math.max(80, 1000 - (level - 1) * 85);
     }
-    if (cleared) {
-      lines += cleared;
-      score += LINE_SCORES[cleared] * level;
-      const newLevel = Math.floor(lines / 10) + 1;
-      if (newLevel !== level) {
-        level = newLevel;
-        dropInterval = Math.max(80, 1000 - (level - 1) * 85);
-      }
-      updateStats();
-    }
+    updateStats();
   }
 
   function updateStats() {
@@ -324,7 +527,7 @@
     if (score > highScore) {
       highScore = score;
       localStorage.setItem('tetrisHighScore', highScore);
-      document.getElementById('highScore').textContent = highScore;
+      updateHighScoreDisplays();
     }
   }
 
@@ -373,6 +576,19 @@
           drawCell(ctx, (current.x + c) * CELL, (current.y + r) * CELL, CELL, COLORS[current.type]);
       }));
     }
+
+    if (clearing && !clearing.burst) {
+      const flashAlpha = 0.45 + 0.45 * Math.sin(clearing.t * 0.12);
+      ctx.fillStyle = `rgba(255,255,255,${flashAlpha})`;
+      clearing.rows.forEach(r => ctx.fillRect(0, r * CELL, COLS * CELL, CELL));
+    }
+
+    particles.forEach(p => {
+      ctx.globalAlpha = Math.max(p.life, 0);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x, p.y, p.size, p.size);
+    });
+    ctx.globalAlpha = 1;
   }
 
   function drawMini(context, canvas, type, offsetY) {
@@ -405,13 +621,38 @@
     if (!paused && !gameOver) {
       const delta = time - lastTime;
       lastTime = time;
-      dropTimer += delta;
-      if (dropTimer > dropInterval) {
-        dropTimer = 0;
-        if (!collides(current.shape, current.x, current.y + 1)) {
-          current.y++;
-        } else {
-          lockPiece();
+
+      const dt = delta / 1000;
+      particles.forEach(p => {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += 350 * dt;
+        p.life -= p.decay * dt;
+      });
+      particles = particles.filter(p => p.life > 0);
+
+      if (clearing) {
+        clearing.t += delta;
+        if (!clearing.burst && clearing.t >= FLASH_MS) {
+          clearing.burst = true;
+          spawnRowParticles(clearing.rows);
+          removeRows(clearing.rows);
+        }
+        if (clearing.t >= CLEAR_MS) {
+          clearing = null;
+          dropTimer = 0;
+          spawnPiece();
+          drawNext();
+        }
+      } else {
+        dropTimer += delta;
+        if (dropTimer > dropInterval) {
+          dropTimer = 0;
+          if (!collides(current.shape, current.x, current.y + 1)) {
+            current.y++;
+          } else {
+            lockPiece();
+          }
         }
       }
       draw();
@@ -428,11 +669,13 @@
     dropTimer = 0;
     gameOver = false;
     paused = false;
+    particles = [];
+    clearing = null;
     updateStats();
     spawnPiece();
     drawNext();
     drawHold();
-    overlay.classList.add('hidden');
+    hideOverlay();
     if (!running) {
       running = true;
       lastTime = performance.now();
@@ -442,34 +685,41 @@
 
   function endGame() {
     gameOver = true;
-    overlay.querySelector('h1').textContent = 'GAME OVER';
-    overlay.querySelector('p').textContent = `คะแนน: ${score}`;
-    startBtn.textContent = 'เล่นอีกครั้ง';
-    overlay.classList.remove('hidden');
+    document.getElementById('gameoverScore').textContent = `คะแนน: ${score}`;
+    showScreen('screen-gameover');
+  }
+
+  function goHome() {
+    running = false;
+    paused = false;
+    gameOver = false;
+    updateHighScoreDisplays();
+    showScreen('screen-home');
   }
 
   function togglePause() {
     if (gameOver || !running) return;
     paused = !paused;
     if (paused) {
-      overlay.querySelector('h1').textContent = 'PAUSED';
-      overlay.querySelector('p').textContent = 'กด P เพื่อเล่นต่อ';
-      startBtn.textContent = 'เล่นต่อ';
-      overlay.classList.remove('hidden');
+      showScreen('screen-paused');
     } else {
       lastTime = performance.now();
-      overlay.classList.add('hidden');
+      hideOverlay();
     }
   }
 
-  startBtn.addEventListener('click', () => {
-    if (paused) { togglePause(); return; }
-    startGame();
-  });
+  document.getElementById('btnStart').addEventListener('click', startGame);
+  document.getElementById('btnRetry').addEventListener('click', startGame);
+  document.getElementById('btnResume').addEventListener('click', togglePause);
+  document.getElementById('btnPauseHome').addEventListener('click', goHome);
+  document.getElementById('btnGameoverHome').addEventListener('click', goHome);
+  gearBtn.addEventListener('click', () => { gearBtn.blur(); togglePause(); });
+  document.getElementById('btnHowto').addEventListener('click', () => showScreen('screen-howto'));
+  document.getElementById('btnHowtoBack').addEventListener('click', () => showScreen('screen-home'));
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'p' || e.key === 'P') { togglePause(); return; }
-    if (!running || paused || gameOver) return;
+    if (!running || paused || gameOver || !current) return;
     switch (e.key) {
       case 'ArrowLeft': move(-1); break;
       case 'ArrowRight': move(1); break;
@@ -482,6 +732,9 @@
     }
     draw();
   });
+
+  updateHighScoreDisplays();
+  showScreen('screen-home');
 })();
 </script>
 </body>
