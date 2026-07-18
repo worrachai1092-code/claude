@@ -257,6 +257,9 @@
   let score, level, lines, highScore;
   let dropInterval, dropTimer, lastTime;
   let running = false, paused = false, gameOver = false;
+  let particles = [], clearing = null;
+
+  const FLASH_MS = 130, CLEAR_MS = 380;
 
   highScore = +(localStorage.getItem('tetrisHighScore') || 0);
 
@@ -385,31 +388,56 @@
     current.shape.forEach((row, r) => row.forEach((v, c) => {
       if (v && current.y + r >= 0) grid[current.y + r][current.x + c] = current.type;
     }));
-    clearLines();
-    spawnPiece();
-    drawNext();
+    const fullRows = [];
+    for (let r = 0; r < ROWS; r++) {
+      if (grid[r].every(cell => cell)) fullRows.push(r);
+    }
+    if (fullRows.length) {
+      clearing = { rows: fullRows, t: 0, burst: false };
+      current = null;
+    } else {
+      spawnPiece();
+      drawNext();
+    }
   }
 
-  function clearLines() {
-    let cleared = 0;
-    for (let r = ROWS - 1; r >= 0; r--) {
-      if (grid[r].every(cell => cell)) {
-        grid.splice(r, 1);
-        grid.unshift(Array(COLS).fill(null));
-        cleared++;
-        r++;
+  function spawnRowParticles(rows) {
+    const N = 5;
+    const s = CELL / N;
+    rows.forEach(r => {
+      for (let c = 0; c < COLS; c++) {
+        const color = COLORS[grid[r][c]];
+        for (let pr = 0; pr < N; pr++) {
+          for (let pc = 0; pc < N; pc++) {
+            if (Math.random() < 0.35) continue;
+            particles.push({
+              x: c * CELL + pc * s,
+              y: r * CELL + pr * s,
+              size: s * (0.6 + Math.random() * 0.8),
+              color,
+              vx: (Math.random() - 0.5) * 280,
+              vy: -Math.random() * 240 - 20,
+              life: 1,
+              decay: 1.3 + Math.random() * 1.2
+            });
+          }
+        }
       }
+    });
+  }
+
+  function removeRows(rows) {
+    [...rows].sort((a, b) => b - a).forEach(r => grid.splice(r, 1));
+    for (let i = 0; i < rows.length; i++) grid.unshift(Array(COLS).fill(null));
+    const cleared = rows.length;
+    lines += cleared;
+    score += LINE_SCORES[cleared] * level;
+    const newLevel = Math.floor(lines / 10) + 1;
+    if (newLevel !== level) {
+      level = newLevel;
+      dropInterval = Math.max(80, 1000 - (level - 1) * 85);
     }
-    if (cleared) {
-      lines += cleared;
-      score += LINE_SCORES[cleared] * level;
-      const newLevel = Math.floor(lines / 10) + 1;
-      if (newLevel !== level) {
-        level = newLevel;
-        dropInterval = Math.max(80, 1000 - (level - 1) * 85);
-      }
-      updateStats();
-    }
+    updateStats();
   }
 
   function updateStats() {
@@ -468,6 +496,19 @@
           drawCell(ctx, (current.x + c) * CELL, (current.y + r) * CELL, CELL, COLORS[current.type]);
       }));
     }
+
+    if (clearing && !clearing.burst) {
+      const flashAlpha = 0.45 + 0.45 * Math.sin(clearing.t * 0.25);
+      ctx.fillStyle = `rgba(255,255,255,${flashAlpha})`;
+      clearing.rows.forEach(r => ctx.fillRect(0, r * CELL, COLS * CELL, CELL));
+    }
+
+    particles.forEach(p => {
+      ctx.globalAlpha = Math.max(p.life, 0);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x, p.y, p.size, p.size);
+    });
+    ctx.globalAlpha = 1;
   }
 
   function drawMini(context, canvas, type, offsetY) {
@@ -500,13 +541,38 @@
     if (!paused && !gameOver) {
       const delta = time - lastTime;
       lastTime = time;
-      dropTimer += delta;
-      if (dropTimer > dropInterval) {
-        dropTimer = 0;
-        if (!collides(current.shape, current.x, current.y + 1)) {
-          current.y++;
-        } else {
-          lockPiece();
+
+      const dt = delta / 1000;
+      particles.forEach(p => {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += 620 * dt;
+        p.life -= p.decay * dt;
+      });
+      particles = particles.filter(p => p.life > 0);
+
+      if (clearing) {
+        clearing.t += delta;
+        if (!clearing.burst && clearing.t >= FLASH_MS) {
+          clearing.burst = true;
+          spawnRowParticles(clearing.rows);
+          removeRows(clearing.rows);
+        }
+        if (clearing.t >= CLEAR_MS) {
+          clearing = null;
+          dropTimer = 0;
+          spawnPiece();
+          drawNext();
+        }
+      } else {
+        dropTimer += delta;
+        if (dropTimer > dropInterval) {
+          dropTimer = 0;
+          if (!collides(current.shape, current.x, current.y + 1)) {
+            current.y++;
+          } else {
+            lockPiece();
+          }
         }
       }
       draw();
@@ -523,6 +589,8 @@
     dropTimer = 0;
     gameOver = false;
     paused = false;
+    particles = [];
+    clearing = null;
     updateStats();
     spawnPiece();
     drawNext();
@@ -570,7 +638,7 @@
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'p' || e.key === 'P') { togglePause(); return; }
-    if (!running || paused || gameOver) return;
+    if (!running || paused || gameOver || !current) return;
     switch (e.key) {
       case 'ArrowLeft': move(-1); break;
       case 'ArrowRight': move(1); break;
