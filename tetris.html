@@ -171,6 +171,29 @@
     min-width: 70px;
   }
   .board-holder { position: relative; }
+  #gearBtn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 42px;
+    height: 42px;
+    font-size: 22px;
+    line-height: 1;
+    background: rgba(26, 26, 46, 0.85);
+    border: 2px solid #2e2e4e;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.3s, filter 0.15s, border-color 0.15s;
+    z-index: 5;
+  }
+  #gearBtn:hover {
+    transform: rotate(90deg);
+    filter: brightness(1.35);
+    border-color: #7b2ff7;
+  }
   .hidden { display: none !important; }
 </style>
 </head>
@@ -198,6 +221,7 @@
 
   <div class="board-holder">
     <canvas id="board" width="300" height="600"></canvas>
+    <button id="gearBtn" class="hidden" title="พักเกม / กลับหน้าหลัก">⚙️</button>
     <div id="overlay">
 
       <div class="deco" id="homeDeco">
@@ -283,6 +307,7 @@
   const holdCanvas = document.getElementById('holdCanvas');
   const hctx = holdCanvas.getContext('2d');
   const overlay = document.getElementById('overlay');
+  const gearBtn = document.getElementById('gearBtn');
 
   const SCREENS = ['screen-home', 'screen-howto', 'screen-paused', 'screen-gameover'];
 
@@ -319,10 +344,12 @@
     overlay.classList.toggle('home-bg', isMenu);
     document.getElementById('homeDeco').classList.toggle('hidden', !isMenu);
     overlay.classList.remove('hidden');
+    gearBtn.classList.add('hidden');
   }
 
   function hideOverlay() {
     overlay.classList.add('hidden');
+    gearBtn.classList.remove('hidden');
   }
 
   function updateHighScoreDisplays() {
@@ -686,6 +713,7 @@
   document.getElementById('btnResume').addEventListener('click', togglePause);
   document.getElementById('btnPauseHome').addEventListener('click', goHome);
   document.getElementById('btnGameoverHome').addEventListener('click', goHome);
+  gearBtn.addEventListener('click', () => { gearBtn.blur(); togglePause(); });
   document.getElementById('btnHowto').addEventListener('click', () => showScreen('screen-howto'));
   document.getElementById('btnHowtoBack').addEventListener('click', () => showScreen('screen-home'));
 
