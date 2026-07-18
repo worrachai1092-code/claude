@@ -64,20 +64,51 @@
   #overlay {
     position: absolute;
     inset: 0;
-    background: rgba(10, 10, 20, 0.85);
+    background: rgba(10, 10, 20, 0.92);
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     border-radius: 8px;
     gap: 12px;
+    padding: 16px;
   }
-  #overlay h1 { font-size: 34px; letter-spacing: 4px; }
-  #overlay p { color: #aaaacc; font-size: 15px; }
-  #overlay button {
-    margin-top: 8px;
-    padding: 12px 34px;
-    font-size: 17px;
+  .screen {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+  }
+  .logo {
+    font-size: 40px;
+    font-weight: 900;
+    letter-spacing: 6px;
+    display: flex;
+  }
+  .logo span { animation: float 2.2s ease-in-out infinite; }
+  .logo span:nth-child(1) { color: #00e5ff; animation-delay: 0s; }
+  .logo span:nth-child(2) { color: #ffd500; animation-delay: 0.15s; }
+  .logo span:nth-child(3) { color: #b537f2; animation-delay: 0.3s; }
+  .logo span:nth-child(4) { color: #3cf267; animation-delay: 0.45s; }
+  .logo span:nth-child(5) { color: #ff4d5a; animation-delay: 0.6s; }
+  .logo span:nth-child(6) { color: #ff9f1c; animation-delay: 0.75s; }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+  .screen h1 { font-size: 32px; letter-spacing: 4px; }
+  .screen p { color: #aaaacc; font-size: 15px; text-align: center; }
+  .home-high {
+    color: #ffd500;
+    font-size: 14px;
+    letter-spacing: 1px;
+  }
+  .btn {
+    padding: 12px 0;
+    width: 190px;
+    font-size: 16px;
     font-weight: bold;
     color: #fff;
     background: linear-gradient(135deg, #7b2ff7, #f107a3);
@@ -85,7 +116,21 @@
     border-radius: 8px;
     cursor: pointer;
   }
-  #overlay button:hover { filter: brightness(1.2); }
+  .btn.secondary {
+    background: #2e2e4e;
+  }
+  .btn:hover { filter: brightness(1.2); }
+  .howto-list {
+    font-size: 13px;
+    color: #aaaacc;
+    line-height: 2.1;
+    text-align: left;
+  }
+  .howto-list b {
+    color: #fff;
+    display: inline-block;
+    min-width: 70px;
+  }
   .board-holder { position: relative; }
   .hidden { display: none !important; }
 </style>
@@ -115,9 +160,45 @@
   <div class="board-holder">
     <canvas id="board" width="300" height="600"></canvas>
     <div id="overlay">
-      <h1>TETRIS</h1>
-      <p>กด Start เพื่อเริ่มเล่น</p>
-      <button id="startBtn">Start</button>
+
+      <div class="screen" id="screen-home">
+        <div class="logo">
+          <span>T</span><span>E</span><span>T</span><span>R</span><span>I</span><span>S</span>
+        </div>
+        <div class="home-high">🏆 คะแนนสูงสุด: <span id="homeHighScore">0</span></div>
+        <button class="btn" id="btnStart">เริ่มเกม</button>
+        <button class="btn secondary" id="btnHowto">วิธีเล่น</button>
+      </div>
+
+      <div class="screen hidden" id="screen-howto">
+        <h1>วิธีเล่น</h1>
+        <div class="howto-list">
+          <b>← →</b> เลื่อนซ้าย/ขวา<br>
+          <b>↓</b> เลื่อนลงเร็ว<br>
+          <b>↑ / X</b> หมุนขวา<br>
+          <b>Z</b> หมุนซ้าย<br>
+          <b>Space</b> ทิ้งลงทันที<br>
+          <b>C</b> เก็บตัวหมาก<br>
+          <b>P</b> หยุดชั่วคราว
+        </div>
+        <p>เรียงบล็อกให้เต็มแถวเพื่อเก็บคะแนน<br>ยิ่งเลเวลสูง บล็อกยิ่งตกเร็ว!</p>
+        <button class="btn secondary" id="btnHowtoBack">กลับ</button>
+      </div>
+
+      <div class="screen hidden" id="screen-paused">
+        <h1>PAUSED</h1>
+        <p>กด P เพื่อเล่นต่อ</p>
+        <button class="btn" id="btnResume">เล่นต่อ</button>
+        <button class="btn secondary" id="btnPauseHome">หน้าหลัก</button>
+      </div>
+
+      <div class="screen hidden" id="screen-gameover">
+        <h1>GAME OVER</h1>
+        <p id="gameoverScore">คะแนน: 0</p>
+        <button class="btn" id="btnRetry">เล่นอีกครั้ง</button>
+        <button class="btn secondary" id="btnGameoverHome">หน้าหลัก</button>
+      </div>
+
     </div>
   </div>
 
@@ -152,7 +233,8 @@
   const holdCanvas = document.getElementById('holdCanvas');
   const hctx = holdCanvas.getContext('2d');
   const overlay = document.getElementById('overlay');
-  const startBtn = document.getElementById('startBtn');
+
+  const SCREENS = ['screen-home', 'screen-howto', 'screen-paused', 'screen-gameover'];
 
   const COLORS = {
     I: '#00e5ff', O: '#ffd500', T: '#b537f2',
@@ -177,7 +259,20 @@
   let running = false, paused = false, gameOver = false;
 
   highScore = +(localStorage.getItem('tetrisHighScore') || 0);
-  document.getElementById('highScore').textContent = highScore;
+
+  function showScreen(id) {
+    SCREENS.forEach(s => document.getElementById(s).classList.toggle('hidden', s !== id));
+    overlay.classList.remove('hidden');
+  }
+
+  function hideOverlay() {
+    overlay.classList.add('hidden');
+  }
+
+  function updateHighScoreDisplays() {
+    document.getElementById('highScore').textContent = highScore;
+    document.getElementById('homeHighScore').textContent = highScore;
+  }
 
   function emptyGrid() {
     return Array.from({ length: ROWS }, () => Array(COLS).fill(null));
@@ -324,7 +419,7 @@
     if (score > highScore) {
       highScore = score;
       localStorage.setItem('tetrisHighScore', highScore);
-      document.getElementById('highScore').textContent = highScore;
+      updateHighScoreDisplays();
     }
   }
 
@@ -432,7 +527,7 @@
     spawnPiece();
     drawNext();
     drawHold();
-    overlay.classList.add('hidden');
+    hideOverlay();
     if (!running) {
       running = true;
       lastTime = performance.now();
@@ -442,30 +537,36 @@
 
   function endGame() {
     gameOver = true;
-    overlay.querySelector('h1').textContent = 'GAME OVER';
-    overlay.querySelector('p').textContent = `คะแนน: ${score}`;
-    startBtn.textContent = 'เล่นอีกครั้ง';
-    overlay.classList.remove('hidden');
+    document.getElementById('gameoverScore').textContent = `คะแนน: ${score}`;
+    showScreen('screen-gameover');
+  }
+
+  function goHome() {
+    running = false;
+    paused = false;
+    gameOver = false;
+    updateHighScoreDisplays();
+    showScreen('screen-home');
   }
 
   function togglePause() {
     if (gameOver || !running) return;
     paused = !paused;
     if (paused) {
-      overlay.querySelector('h1').textContent = 'PAUSED';
-      overlay.querySelector('p').textContent = 'กด P เพื่อเล่นต่อ';
-      startBtn.textContent = 'เล่นต่อ';
-      overlay.classList.remove('hidden');
+      showScreen('screen-paused');
     } else {
       lastTime = performance.now();
-      overlay.classList.add('hidden');
+      hideOverlay();
     }
   }
 
-  startBtn.addEventListener('click', () => {
-    if (paused) { togglePause(); return; }
-    startGame();
-  });
+  document.getElementById('btnStart').addEventListener('click', startGame);
+  document.getElementById('btnRetry').addEventListener('click', startGame);
+  document.getElementById('btnResume').addEventListener('click', togglePause);
+  document.getElementById('btnPauseHome').addEventListener('click', goHome);
+  document.getElementById('btnGameoverHome').addEventListener('click', goHome);
+  document.getElementById('btnHowto').addEventListener('click', () => showScreen('screen-howto'));
+  document.getElementById('btnHowtoBack').addEventListener('click', () => showScreen('screen-home'));
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'p' || e.key === 'P') { togglePause(); return; }
@@ -482,6 +583,9 @@
     }
     draw();
   });
+
+  updateHighScoreDisplays();
+  showScreen('screen-home');
 })();
 </script>
 </body>
