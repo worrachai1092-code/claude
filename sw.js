@@ -1,6 +1,6 @@
 // Cache-first service worker so the app opens with no connection.
 // Bump the version whenever any cached file changes.
-const CACHE = 'stock-notes-v5';
+const CACHE = 'stock-notes-v6';
 const ASSETS = ['.', 'index.html', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {

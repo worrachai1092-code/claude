@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Stock Trading Notes</title>
 <meta name="description" content="Log stock buys and sells; profit and loss is calculated automatically.">
-<meta name="theme-color" content="#0b0e11">
+<meta name="theme-color" content="#0c1712">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -14,28 +14,28 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <style>
-  /* Trading-app dark theme — the app is always dark by design */
+  /* Trading-app dark-green theme — the app is always dark by design */
   :root {
     color-scheme: dark;
-    --page:           #0b0e11;
-    --surface-1:      #14181e;
-    --text-primary:   #eaecef;
-    --text-secondary: #a7b1bc;
-    --text-muted:     #707a85;
-    --hairline:       #1e242c;
-    --border:         rgba(255,255,255,0.08);
+    --page:           #0c1712;
+    --surface-1:      #132419;
+    --text-primary:   #e9f5ee;
+    --text-secondary: #a3c4b1;
+    --text-muted:     #6f9080;
+    --hairline:       #1e3628;
+    --border:         rgba(14,203,129,0.14);
     --accent:         #0ecb81;
     --accent-strong:  #34dd9a;
-    --gain:           #0ecb81;
+    --gain:           #17e08e;
     --loss:           #f6465d;
-    --warn-bg:        #3a2f10;
-    --chip-buy-ink:   #0ecb81;
+    --warn-bg:        #2c3a1e;
+    --chip-buy-ink:   #17e08e;
     --chip-sell-ink:  #f6465d;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    background: var(--page);
+    background: radial-gradient(140% 480px at 50% -120px, rgba(14,203,129,0.16), transparent 72%) no-repeat, var(--page);
     color: var(--text-primary);
     padding: 24px 16px 64px;
     padding-top: max(24px, env(safe-area-inset-top));
@@ -75,8 +75,13 @@
     border-radius: 8px;
     padding: 8px 10px;
   }
-  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+  input, select, button {
+    transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease,
+                opacity 0.18s ease, box-shadow 0.18s ease, transform 0.12s ease;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; box-shadow: 0 0 0 5px rgba(14,203,129,0.14); }
   button { cursor: pointer; }
+  button:active { transform: scale(0.96); }
   .btn-primary { background: var(--accent); border-color: transparent; color: #0b0e11; font-weight: 600; }
   .btn-primary:hover { background: var(--accent-strong); }
   .btn-ghost { background: transparent; border-color: transparent; color: var(--text-secondary); }
@@ -107,7 +112,7 @@
 
   .h2-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
   .h2-row h2 { margin-bottom: 0; }
-  .h2-row + form, .scan-status + form, .key-setup + form, .h2-row + .table-scroll { margin-top: 14px; }
+  .h2-row + .table-scroll { margin-top: 14px; }
 
   /* Home hero number */
   .tile.hero { grid-column: 1 / -1; }
@@ -128,17 +133,44 @@
     color: var(--text-muted); font-size: 11px; font-weight: 500;
     padding: 10px 0 8px; cursor: pointer;
   }
-  .tab svg { width: 22px; height: 22px; }
+  .tab svg { width: 22px; height: 22px; transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .tab { transition: color 0.2s ease; }
+  .tab:active { transform: none; }
   .tab.active { color: var(--accent); }
-  .scan-status { font-size: 13px; color: var(--accent); margin-top: 10px; }
-  .scan-status.err { color: var(--loss); }
-  .key-setup { border: 1px solid var(--hairline); border-radius: 10px; padding: 12px; margin-top: 12px; }
-  .key-setup > label { display: block; margin-bottom: 8px; }
-  .key-row { display: flex; gap: 8px; }
-  .key-row input { flex: 1; min-width: 0; }
-  .key-hint { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
-  .flash { animation: flash 1.2s ease-out; }
-  @keyframes flash { 0% { background: rgba(14,203,129,0.18); } 100% { background: transparent; } }
+  .tab.active svg { transform: translateY(-2px) scale(1.1); }
+
+  /* View transitions — each page rises in smoothly */
+  .view-enter { animation: viewIn 0.32s cubic-bezier(0.22, 0.9, 0.3, 1); }
+  @keyframes viewIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: none; }
+  }
+  .tile .value.gain { text-shadow: 0 0 28px rgba(14,203,129,0.4); }
+  tbody td { transition: background-color 0.15s ease; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+  /* Position cards (Holdings) */
+  #holdings-list { display: grid; gap: 12px; }
+  @media (min-width: 700px) { #holdings-list { grid-template-columns: 1fr 1fr; } }
+  .pos-card {
+    background: linear-gradient(180deg, rgba(14,203,129,0.10), rgba(14,203,129,0.03));
+    border: 1px solid rgba(14,203,129,0.18);
+    border-radius: 14px;
+    padding: 14px 16px;
+  }
+  .pos-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+  .pos-top .sym { font-size: 17px; }
+  .pos-unrl { font-weight: 600; font-size: 14px; color: var(--text-muted); }
+  .pos-unrl.gain { color: var(--gain); }
+  .pos-unrl.loss { color: var(--loss); }
+  .pos-grid { display: grid; grid-template-columns: 1fr 1fr 1.1fr; gap: 10px; align-items: end; }
+  .pos-label { display: block; font-size: 10.5px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+  .pos-big { font-size: 17px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .pos-grid .price-input { width: 100%; }
+  .pos-sub { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px; font-size: 12.5px; color: var(--text-secondary); }
+  .pos-card.closed { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 16px; opacity: 0.75; }
 
   @media (max-width: 640px) {
     body { padding-top: max(16px, env(safe-area-inset-top)); }
@@ -179,21 +211,7 @@
   <div class="tiles" id="tiles"></div>
 
   <div class="card" id="form-card" hidden>
-    <div class="h2-row">
-      <h2 id="form-title">Add a trade note</h2>
-      <button type="button" class="btn-ghost btn-small" id="scan-btn">📷 Scan slip</button>
-      <input type="file" id="slip-file" accept="image/*" hidden>
-    </div>
-    <div class="scan-status" id="scan-status" hidden></div>
-    <div class="key-setup" id="key-setup" hidden>
-      <label for="api-key">Anthropic API key (one-time setup for slip reading)</label>
-      <div class="key-row">
-        <input id="api-key" type="password" placeholder="sk-ant-..." autocomplete="off">
-        <button type="button" class="btn-primary btn-small" id="key-save">Save</button>
-        <button type="button" class="btn-ghost btn-small" id="key-cancel">Cancel</button>
-      </div>
-      <div class="key-hint">Get a key at console.anthropic.com → API keys. It is stored only in this browser and sent only to Anthropic. Each scan costs a fraction of a cent.</div>
-    </div>
+    <h2 id="form-title">Add a trade note</h2>
     <form id="trade-form">
       <div class="field">
         <label for="f-type">Action</label>
@@ -231,18 +249,8 @@
 
   <div class="card" id="holdings-card">
     <h2>Holdings</h2>
-    <div class="table-scroll">
-      <table id="holdings-table">
-        <thead>
-          <tr>
-            <th class="left">Symbol</th><th>Shares</th><th>Avg cost</th><th>Cost basis</th>
-            <th>Current price</th><th>Market value</th><th>Unrealized P/L</th><th>Realized P/L</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-      <div class="empty" id="holdings-empty">No trades yet — tap Add below to log your first buy.</div>
-    </div>
+    <div id="holdings-list"></div>
+    <div class="empty" id="holdings-empty">No trades yet — tap Add below to log your first buy.</div>
   </div>
 
   <div class="card" id="history-card" hidden>
@@ -296,9 +304,7 @@
       const raw = localStorage.getItem(STORE_KEY);
       if (raw) {
         const s = JSON.parse(raw);
-        const state = { transactions: s.transactions || [], prices: s.prices || {}, currency: s.currency || 'USD' };
-        if (s.apiKey) state.apiKey = s.apiKey;
-        return state;
+        return { transactions: s.transactions || [], prices: s.prices || {}, currency: s.currency || 'USD' };
       }
     } catch (e) { /* corrupted storage: start fresh */ }
     return { transactions: [], prices: {}, currency: 'USD' };
@@ -379,32 +385,64 @@
     $('tiles').innerHTML = tiles.map(t =>
       `<div class="tile${t.hero ? ' hero' : ''}"><div class="label">${t.label}</div>` +
       `<div class="value ${t.cls}">${t.value}</div><div class="hint">${t.hint}</div></div>`).join('');
+
+    // Count the hero total up/down to its new value
+    const totalNum = realized + (priced > 0 ? unrealized : 0);
+    const heroEl = $('tiles').querySelector('.tile.hero .value');
+    if (heroPrev !== null && heroEl && Math.abs(totalNum - heroPrev) > 1e-9 &&
+        !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      animateNumber(heroEl, heroPrev, totalNum);
+    }
+    heroPrev = totalNum;
+  }
+
+  let heroPrev = null;
+  function animateNumber(el, from, to) {
+    const dur = 600, t0 = performance.now();
+    const ease = x => 1 - Math.pow(1 - x, 3);
+    (function frame(now) {
+      const p = Math.min(1, (now - t0) / dur);
+      el.textContent = fmtSigned(from + (to - from) * ease(p));
+      if (p < 1) requestAnimationFrame(frame);
+    })(t0);
   }
 
   function renderHoldings(positions) {
     const syms = Object.keys(positions).sort();
-    const tbody = $('holdings-table').querySelector('tbody');
+    const list = $('holdings-list');
     $('holdings-empty').style.display = syms.length ? 'none' : 'block';
-    tbody.innerHTML = syms.map(sym => {
+    list.innerHTML = syms.map(sym => {
       const p = positions[sym];
-      const open = p.shares > 0;
-      const avg = open ? p.costBasis / p.shares : 0;
+      if (p.shares <= 0) {
+        return `<div class="pos-card closed">
+          <span class="sym">${esc(sym)} <span class="badge-warn">closed</span></span>
+          <span class="pos-unrl ${plClass(p.realized)}">${plArrow(p.realized)}${fmtSigned(p.realized)} realized</span>
+        </div>`;
+      }
+      const avg = p.costBasis / p.shares;
       const cur = state.prices[sym];
-      const mv = open && cur != null ? p.shares * cur : null;
+      const mv = cur != null ? p.shares * cur : null;
       const unrl = mv != null ? mv - p.costBasis : null;
-      return `<tr>
-        <td class="sym">${esc(sym)}${open ? '' : ' <span class="badge-warn">closed</span>'}</td>
-        <td class="num">${open ? fmtQty(p.shares) : '—'}</td>
-        <td class="num">${open ? fmtMoney(avg) : '—'}</td>
-        <td class="num">${open ? fmtMoney(p.costBasis) : '—'}</td>
-        <td>${open ? `<input class="price-input" type="number" min="0" step="any" data-sym="${esc(sym)}"
-              value="${cur ?? ''}" placeholder="price" aria-label="Current price for ${esc(sym)}">` : '—'}</td>
-        <td class="num">${mv != null ? fmtMoney(mv) : '—'}</td>
-        <td class="num ${unrl != null ? plClass(unrl) : ''}">${unrl != null ? plArrow(unrl) + fmtSigned(unrl) : '—'}</td>
-        <td class="num ${plClass(p.realized)}">${p.realized !== 0 ? plArrow(p.realized) + fmtSigned(p.realized) : fmtMoney(0)}</td>
-      </tr>`;
+      return `<div class="pos-card">
+        <div class="pos-top">
+          <span class="sym">${esc(sym)}</span>
+          <span class="pos-unrl ${unrl != null ? plClass(unrl) : ''}">${unrl != null ? plArrow(unrl) + fmtSigned(unrl) : 'add price for P/L'}</span>
+        </div>
+        <div class="pos-grid">
+          <div><span class="pos-label">Avg cost</span><span class="pos-big">${fmtMoney(avg)}</span></div>
+          <div><span class="pos-label">Shares</span><span class="pos-big">${fmtQty(p.shares)}</span></div>
+          <div><span class="pos-label">Current price</span>
+            <input class="price-input" type="number" min="0" step="any" data-sym="${esc(sym)}"
+              value="${cur ?? ''}" placeholder="0.00" aria-label="Current price for ${esc(sym)}"></div>
+        </div>
+        <div class="pos-sub">
+          <span>Cost ${fmtMoney(p.costBasis)}</span>
+          ${mv != null ? `<span>Value ${fmtMoney(mv)}</span>` : ''}
+          ${p.realized !== 0 ? `<span class="${plClass(p.realized)}">Realized ${fmtSigned(p.realized)}</span>` : ''}
+        </div>
+      </div>`;
     }).join('');
-    tbody.querySelectorAll('.price-input').forEach(inp => {
+    list.querySelectorAll('.price-input').forEach(inp => {
       inp.addEventListener('change', () => {
         const v = parseFloat(inp.value);
         if (isFinite(v) && v >= 0 && inp.value !== '') state.prices[inp.dataset.sym] = v;
@@ -451,7 +489,18 @@
   };
   function showView(name) {
     for (const [key, v] of Object.entries(VIEWS)) {
-      for (const id of v.els) $(id).hidden = key !== name;
+      for (const id of v.els) {
+        const el = $(id);
+        const show = key === name;
+        if (show && el.hidden) {
+          el.hidden = false;
+          el.classList.remove('view-enter');
+          void el.offsetWidth; /* restart the animation */
+          el.classList.add('view-enter');
+        } else if (!show) {
+          el.hidden = true;
+        }
+      }
       $(v.tab).classList.toggle('active', key === name);
     }
     window.scrollTo({ top: 0 });
@@ -535,7 +584,6 @@
       state.transactions.push(tx);
     }
     save(); stopEdit(); render();
-    scanStatus('');
     showView('home');
   });
 
@@ -565,141 +613,6 @@
     a.click();
     URL.revokeObjectURL(a.href);
   });
-
-  // ---- Slip scanning: photo of a broker slip -> Claude vision -> prefilled form ----
-  const SLIP_SCHEMA = {
-    type: 'object',
-    properties: {
-      found:  { type: 'boolean', description: 'true only if the image shows a stock trade confirmation/slip' },
-      action: { type: 'string', enum: ['buy', 'sell'] },
-      symbol: { type: 'string', description: 'Stock ticker symbol' },
-      date:   { type: 'string', description: 'Trade date as YYYY-MM-DD' },
-      shares: { type: 'number' },
-      price:  { type: 'number', description: 'Price per share' },
-      fee:    { type: 'number', description: 'Total fees/commission/VAT, 0 if not shown' },
-    },
-    required: ['found', 'action', 'symbol', 'date', 'shares', 'price', 'fee'],
-    additionalProperties: false,
-  };
-  const SLIP_PROMPT =
-    'Read this brokerage trade slip / order confirmation (it may be in English or Thai). ' +
-    'Extract the executed trade: buy or sell, ticker symbol, trade date (YYYY-MM-DD; convert Thai Buddhist years by subtracting 543), ' +
-    'number of shares, price per share, and total fees (commission + VAT; 0 if not shown). ' +
-    'If several partial executions of the same order are listed, sum the shares and use the volume-weighted average price. ' +
-    'If the image is not a trade slip, set found to false.';
-
-  function scanStatus(msg, isError) {
-    const el = $('scan-status');
-    el.hidden = !msg;
-    el.textContent = msg || '';
-    el.classList.toggle('err', !!isError);
-  }
-
-  // Downscale to <=1568px JPEG so uploads from phone cameras stay small.
-  function downscale(file) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        const scale = Math.min(1, 1568 / Math.max(img.width, img.height));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
-        URL.revokeObjectURL(img.src);
-      };
-      img.onerror = () => reject(new Error('Could not read that image.'));
-      img.src = URL.createObjectURL(file);
-    });
-  }
-
-  async function readSlip(imageB64) {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': state.apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-opus-4-8',
-        max_tokens: 2048,
-        thinking: { type: 'adaptive' },
-        output_config: { format: { type: 'json_schema', schema: SLIP_SCHEMA } },
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imageB64 } },
-            { type: 'text', text: SLIP_PROMPT },
-          ],
-        }],
-      }),
-    });
-    if (res.status === 401) {
-      delete state.apiKey;
-      save();
-      throw new Error('That API key was rejected — please enter it again.');
-    }
-    if (!res.ok) {
-      const err = await res.json().catch(() => null);
-      throw new Error(err?.error?.message || `Request failed (${res.status}).`);
-    }
-    const msg = await res.json();
-    if (msg.stop_reason === 'refusal') throw new Error('The image could not be processed.');
-    const text = msg.content.find(b => b.type === 'text')?.text;
-    if (!text) throw new Error('No result returned — try a clearer photo.');
-    return JSON.parse(text);
-  }
-
-  async function scanSlip(file) {
-    $('scan-btn').disabled = true;
-    scanStatus('Reading slip…');
-    try {
-      const trade = await readSlip(await downscale(file));
-      if (!trade.found) throw new Error("That doesn't look like a trade slip — try a clearer photo.");
-      stopEdit();
-      $('f-type').value = trade.action;
-      $('f-symbol').value = trade.symbol.toUpperCase();
-      if (/^\d{4}-\d{2}-\d{2}$/.test(trade.date)) $('f-date').value = trade.date;
-      $('f-qty').value = trade.shares;
-      $('f-price').value = trade.price;
-      $('f-fee').value = trade.fee || '';
-      $('f-note').value = 'From slip';
-      scanStatus(`Found: ${trade.action} ${fmtQty(trade.shares)} ${trade.symbol.toUpperCase()} @ ${trade.price} — check the details, then tap "Add note".`);
-      const form = $('trade-form');
-      form.classList.remove('flash');
-      requestAnimationFrame(() => form.classList.add('flash'));
-      form.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } catch (e) {
-      scanStatus(e.message, true);
-    } finally {
-      $('scan-btn').disabled = false;
-      $('slip-file').value = '';
-    }
-  }
-
-  $('scan-btn').addEventListener('click', () => {
-    if (!state.apiKey) {
-      $('key-setup').hidden = false;
-      $('api-key').focus();
-      return;
-    }
-    $('slip-file').click();
-  });
-  $('slip-file').addEventListener('change', () => {
-    if ($('slip-file').files[0]) scanSlip($('slip-file').files[0]);
-  });
-  $('key-save').addEventListener('click', () => {
-    const key = $('api-key').value.trim();
-    if (!key) return;
-    state.apiKey = key;
-    save();
-    $('api-key').value = '';
-    $('key-setup').hidden = true;
-    $('slip-file').click();
-  });
-  $('key-cancel').addEventListener('click', () => { $('key-setup').hidden = true; });
 
   $('f-date').value = today();
   render();
