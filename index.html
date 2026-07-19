@@ -24,8 +24,8 @@
     --text-muted:     #707a85;
     --hairline:       #1e242c;
     --border:         rgba(255,255,255,0.08);
-    --accent:         #f0b90b;
-    --accent-strong:  #f8d33a;
+    --accent:         #0ecb81;
+    --accent-strong:  #34dd9a;
     --gain:           #0ecb81;
     --loss:           #f6465d;
     --warn-bg:        #3a2f10;
@@ -41,7 +41,7 @@
     padding-top: max(24px, env(safe-area-inset-top));
     padding-left: max(16px, env(safe-area-inset-left));
     padding-right: max(16px, env(safe-area-inset-right));
-    padding-bottom: max(64px, env(safe-area-inset-bottom));
+    padding-bottom: calc(84px + env(safe-area-inset-bottom));
     -webkit-text-size-adjust: 100%;
   }
   .wrap { max-width: 1060px; margin: 0 auto; }
@@ -107,7 +107,29 @@
 
   .h2-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
   .h2-row h2 { margin-bottom: 0; }
-  .h2-row + form, .scan-status + form, .key-setup + form { margin-top: 14px; }
+  .h2-row + form, .scan-status + form, .key-setup + form, .h2-row + .table-scroll { margin-top: 14px; }
+
+  /* Home hero number */
+  .tile.hero { grid-column: 1 / -1; }
+  .tile.hero .value { font-size: 44px; letter-spacing: -0.02em; }
+
+  /* Bottom tab bar */
+  .tabbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+    display: flex;
+    background: rgba(11,14,17,0.92);
+    -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+    border-top: 1px solid var(--hairline);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .tab {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    background: none; border: none; border-radius: 0;
+    color: var(--text-muted); font-size: 11px; font-weight: 500;
+    padding: 10px 0 8px; cursor: pointer;
+  }
+  .tab svg { width: 22px; height: 22px; }
+  .tab.active { color: var(--accent); }
   .scan-status { font-size: 13px; color: var(--accent); margin-top: 10px; }
   .scan-status.err { color: var(--loss); }
   .key-setup { border: 1px solid var(--hairline); border-radius: 10px; padding: 12px; margin-top: 12px; }
@@ -116,13 +138,14 @@
   .key-row input { flex: 1; min-width: 0; }
   .key-hint { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
   .flash { animation: flash 1.2s ease-out; }
-  @keyframes flash { 0% { background: rgba(240,185,11,0.18); } 100% { background: transparent; } }
+  @keyframes flash { 0% { background: rgba(14,203,129,0.18); } 100% { background: transparent; } }
 
   @media (max-width: 640px) {
     body { padding-top: max(16px, env(safe-area-inset-top)); }
     header { margin-bottom: 28px; }
     .tiles { grid-template-columns: repeat(2, 1fr); gap: 18px 12px; margin-bottom: 36px; }
     .tile .value { font-size: 21px; }
+    .tile.hero .value { font-size: 36px; }
     .card { margin-bottom: 32px; }
     form { grid-template-columns: repeat(2, 1fr); }
     .field.grow { grid-column: 1 / -1; }
@@ -150,13 +173,12 @@
         <option value="GBP">GBP £</option>
         <option value="JPY">JPY ¥</option>
       </select>
-      <button class="btn-ghost" id="export-btn" title="Download all notes as a CSV file">Export CSV</button>
     </div>
   </header>
 
   <div class="tiles" id="tiles"></div>
 
-  <div class="card">
+  <div class="card" id="form-card" hidden>
     <div class="h2-row">
       <h2 id="form-title">Add a trade note</h2>
       <button type="button" class="btn-ghost btn-small" id="scan-btn">📷 Scan slip</button>
@@ -207,7 +229,7 @@
     <div class="form-error" id="form-error" role="alert"></div>
   </div>
 
-  <div class="card">
+  <div class="card" id="holdings-card">
     <h2>Holdings</h2>
     <div class="table-scroll">
       <table id="holdings-table">
@@ -219,12 +241,15 @@
         </thead>
         <tbody></tbody>
       </table>
-      <div class="empty" id="holdings-empty">No trades yet — add your first buy above.</div>
+      <div class="empty" id="holdings-empty">No trades yet — tap Add below to log your first buy.</div>
     </div>
   </div>
 
-  <div class="card">
-    <h2>Trade history</h2>
+  <div class="card" id="history-card" hidden>
+    <div class="h2-row">
+      <h2>Trade history</h2>
+      <button class="btn-ghost btn-small" id="export-btn" title="Download all notes as a CSV file">Export CSV</button>
+    </div>
     <div class="table-scroll">
       <table id="history-table">
         <thead>
@@ -241,6 +266,21 @@
   </div>
 
 </div>
+
+<nav class="tabbar">
+  <button class="tab active" id="tab-home" aria-label="Home">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+    <span>Home</span>
+  </button>
+  <button class="tab" id="tab-add" aria-label="Add trade">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+    <span>Add</span>
+  </button>
+  <button class="tab" id="tab-history" aria-label="History">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+    <span>History</span>
+  </button>
+</nav>
 
 <script>
 (() => {
@@ -325,19 +365,19 @@
     const unrealizedKnown = priced === held && held > 0;
     const unrealized = marketValue - costOpen;
     const tiles = [
+      { label: 'Total profit / loss',
+        value: priced > 0 || held === 0 ? fmtSigned(realized + (priced > 0 ? unrealized : 0)) : fmtSigned(realized),
+        cls: plClass(realized + (priced > 0 ? unrealized : 0)),
+        hint: 'Realized + unrealized', hero: true },
       { label: 'Realized profit / loss', value: fmtSigned(realized), cls: plClass(realized), hint: 'From completed sells' },
       { label: 'Unrealized profit / loss',
         value: held === 0 ? '—' : (priced === 0 ? '—' : fmtSigned(unrealized)),
         cls: priced > 0 ? plClass(unrealized) : '',
         hint: held === 0 ? 'No open positions' : priced === 0 ? 'Enter current prices below' : unrealizedKnown ? 'Open positions vs. cost' : 'Partial — some prices missing' },
       { label: 'Open cost basis', value: fmtMoney(costOpen), cls: '', hint: held + (held === 1 ? ' position held' : ' positions held') },
-      { label: 'Total profit / loss',
-        value: priced > 0 || held === 0 ? fmtSigned(realized + (priced > 0 ? unrealized : 0)) : fmtSigned(realized),
-        cls: plClass(realized + (priced > 0 ? unrealized : 0)),
-        hint: 'Realized + unrealized' },
     ];
     $('tiles').innerHTML = tiles.map(t =>
-      `<div class="tile"><div class="label">${t.label}</div>` +
+      `<div class="tile${t.hero ? ' hero' : ''}"><div class="label">${t.label}</div>` +
       `<div class="value ${t.cls}">${t.value}</div><div class="hint">${t.hint}</div></div>`).join('');
   }
 
@@ -403,9 +443,27 @@
     tbody.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => startEdit(b.dataset.edit)));
   }
 
+  // Tab navigation: home = tiles + holdings, add = trade form, history = trade log
+  const VIEWS = {
+    home:    { tab: 'tab-home',    els: ['tiles', 'holdings-card'] },
+    add:     { tab: 'tab-add',     els: ['form-card'] },
+    history: { tab: 'tab-history', els: ['history-card'] },
+  };
+  function showView(name) {
+    for (const [key, v] of Object.entries(VIEWS)) {
+      for (const id of v.els) $(id).hidden = key !== name;
+      $(v.tab).classList.toggle('active', key === name);
+    }
+    window.scrollTo({ top: 0 });
+  }
+  for (const [name, v] of Object.entries(VIEWS)) {
+    $(v.tab).addEventListener('click', () => showView(name));
+  }
+
   function startEdit(id) {
     const tx = state.transactions.find(t => t.id === id);
     if (!tx) return;
+    showView('add');
     editingId = id;
     $('f-type').value = tx.type;
     $('f-symbol').value = tx.symbol;
@@ -477,6 +535,8 @@
       state.transactions.push(tx);
     }
     save(); stopEdit(); render();
+    scanStatus('');
+    showView('home');
   });
 
   $('cancel-edit').addEventListener('click', stopEdit);
