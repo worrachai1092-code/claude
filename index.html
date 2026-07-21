@@ -53,7 +53,7 @@
 
   /* Every section is a rounded block */
   .card, .tiles {
-    background: linear-gradient(180deg, rgba(14,203,129,0.07), rgba(14,203,129,0.02));
+    background: linear-gradient(180deg, rgba(0,0,0,0.66), rgba(0,0,0,0.42));
     border: 1px solid var(--border);
     border-radius: 22px;
     padding: 18px 16px;
@@ -131,7 +131,7 @@
     bottom: calc(12px + env(safe-area-inset-bottom));
     z-index: 10;
     display: flex;
-    background: rgba(15,31,23,0.88);
+    background: rgba(0,0,0,0.82);
     -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
     border: 1px solid var(--border);
     border-radius: 26px;
@@ -171,7 +171,7 @@
   #lock-screen.unlocked { opacity: 0; visibility: hidden; pointer-events: none; }
   .lock-card {
     width: 100%; max-width: 340px;
-    background: linear-gradient(180deg, rgba(14,203,129,0.10), rgba(14,203,129,0.03));
+    background: linear-gradient(180deg, rgba(0,0,0,0.7), rgba(0,0,0,0.48));
     border: 1px solid var(--border);
     border-radius: 26px;
     padding: 30px 24px;
@@ -197,8 +197,8 @@
   #holdings-list { display: grid; gap: 12px; }
   @media (min-width: 700px) { #holdings-list { grid-template-columns: 1fr 1fr; } }
   .pos-card {
-    background: linear-gradient(180deg, rgba(14,203,129,0.10), rgba(14,203,129,0.03));
-    border: 1px solid rgba(14,203,129,0.18);
+    background: linear-gradient(180deg, rgba(0,0,0,0.7), rgba(0,0,0,0.46));
+    border: 1px solid rgba(14,203,129,0.22);
     border-radius: 14px;
     padding: 14px 16px;
   }
@@ -238,8 +238,8 @@
     <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10" width="15" height="10" rx="3.5"/><path d="M8.5 10V7.5a3.5 3.5 0 0 1 7 0V10"/><circle cx="12" cy="15" r="1.4" fill="currentColor" stroke="none"/></svg>
     <h1>Stock Notes</h1>
     <p class="lock-sub" id="lock-sub">Enter your passcode</p>
-    <input id="lock-pass" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Passcode" aria-label="Passcode">
-    <input id="lock-pass2" type="password" inputmode="numeric" placeholder="Confirm passcode" aria-label="Confirm passcode" hidden>
+    <input id="lock-pass" type="password" inputmode="numeric" maxlength="6" autocomplete="current-password" placeholder="Passcode" aria-label="Passcode">
+    <input id="lock-pass2" type="password" inputmode="numeric" maxlength="6" placeholder="Confirm passcode" aria-label="Confirm passcode" hidden>
     <button class="btn-primary lock-btn" id="lock-btn">Unlock</button>
     <div class="lock-err" id="lock-err"></div>
     <button class="lock-forgot" id="lock-forgot" hidden>Forgot passcode? Reset app</button>
@@ -680,7 +680,7 @@
   function initLock() {
     const setMode = !state.passHash;
     $('lock-sub').textContent = setMode
-      ? 'Create a passcode to protect your notes (at least 4 characters)'
+      ? 'Create a 6-character passcode to protect your notes'
       : 'Enter your passcode';
     $('lock-btn').textContent = setMode ? 'Set passcode' : 'Unlock';
     $('lock-pass2').hidden = setMode ? false : true;
@@ -696,7 +696,7 @@
   async function tryUnlock() {
     const pass = $('lock-pass').value;
     if (!state.passHash) {
-      if (pass.length < 4) return lockError('Passcode must be at least 4 characters.');
+      if (pass.length !== 6) return lockError('Passcode must be exactly 6 characters.');
       if (pass !== $('lock-pass2').value) return lockError("Passcodes don't match — type the same code twice.");
       state.passHash = await sha256(pass);
       save();
