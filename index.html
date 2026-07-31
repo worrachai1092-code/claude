@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Stock Trading Notes</title>
+<meta name="description" content="Log stock buys and sells; profit and loss is calculated automatically.">
+<meta name="theme-color" content="#0c1712">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Stock Notes">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<style>
+  /* Trading-app dark-green theme — the app is always dark by design */
+  :root {
+    color-scheme: dark;
+    --page:           #0c1712;
+    --surface-1:      #132419;
+    --text-primary:   #e9f5ee;
+    --text-secondary: #a3c4b1;
+    --text-muted:     #6f9080;
+    --hairline:       #1e3628;
+    --border:         rgba(14,203,129,0.14);
+    --accent:         #0ecb81;
+    --accent-strong:  #34dd9a;
+    --gain:           #17e08e;
+    --loss:           #f6465d;
+    --warn-bg:        #2c3a1e;
+    --chip-buy-ink:   #17e08e;
+    --chip-sell-ink:  #f6465d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: radial-gradient(140% 480px at 50% -120px, rgba(14,203,129,0.16), transparent 72%) no-repeat, var(--page);
+    color: var(--text-primary);
+    padding: 24px 16px 64px;
+    padding-top: max(24px, env(safe-area-inset-top));
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-bottom: calc(104px + env(safe-area-inset-bottom));
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; }
+
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; justify-content: space-between; margin-bottom: 36px; }
+  h1 { font-size: 17px; font-weight: 650; letter-spacing: -0.01em; }
+  h2 { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 14px; }
+  .sub { color: var(--text-muted); font-size: 13px; margin-top: 3px; }
+
+  /* Every section is a rounded block */
+  .card, .tiles {
+    background: linear-gradient(180deg, rgba(0,0,0,0.66), rgba(0,0,0,0.42));
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 18px 16px;
+    margin-bottom: 16px;
+  }
+
+  /* KPI tiles */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; }
+  .tile .label { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+  .tile .value { font-size: 26px; font-weight: 600; margin-top: 6px; }
+  .tile .hint  { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+  .gain { color: var(--gain); }
+  .loss { color: var(--loss); }
+
+  /* Form */
+  form { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; align-items: end; }
+  .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .field input, .field select { width: 100%; }
+  .field.grow { grid-column: span 2; }
+  label { font-size: 12px; color: var(--text-secondary); }
+  input, select, button {
+    font: inherit; font-size: 16px; /* ≥16px stops iOS Safari zooming the page on focus */
+    color: var(--text-primary);
+    background: transparent;
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+  input, select, button {
+    transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease,
+                opacity 0.18s ease, box-shadow 0.18s ease, transform 0.12s ease;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; box-shadow: 0 0 0 5px rgba(14,203,129,0.14); }
+  button { cursor: pointer; }
+  button:active { transform: scale(0.96); }
+  .btn-primary { background: var(--accent); border-color: transparent; color: #0b0e11; font-weight: 600; }
+  .btn-primary:hover { background: var(--accent-strong); }
+  .btn-ghost { background: transparent; border-color: transparent; color: var(--text-secondary); }
+  .btn-ghost:hover { color: var(--text-primary); }
+  .btn-small { font-size: 12.5px; padding: 4px 6px; }
+  .form-error { color: var(--loss); font-size: 13px; margin-top: 10px; display: none; }
+  .vat-hint { color: var(--text-secondary); font-size: 12.5px; margin-top: 12px; }
+  .vat-hint b { color: var(--text-primary); font-variant-numeric: tabular-nums; font-weight: 650; }
+
+  /* Tables */
+  .table-scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { text-align: right; padding: 9px 10px; white-space: nowrap; }
+  th:first-child, td:first-child, th.left, td.left { text-align: left; }
+  thead th { color: var(--text-muted); font-weight: 500; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; border-bottom: 1px solid var(--hairline); }
+  tbody td { border-bottom: 1px solid var(--hairline); }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num { font-variant-numeric: tabular-nums; }
+  .sym { font-weight: 600; }
+  .note-cell { max-width: 220px; overflow: hidden; text-overflow: ellipsis; color: var(--text-secondary); white-space: nowrap; }
+
+  .chip { display: inline-block; font-size: 13px; font-weight: 600; }
+  .chip.buy  { color: var(--chip-buy-ink); }
+  .chip.sell { color: var(--chip-sell-ink); }
+  .badge-warn { background: var(--warn-bg); color: var(--text-primary); font-size: 11px; padding: 2px 6px; border-radius: 5px; }
+
+  .price-input { width: 92px; text-align: right; font-variant-numeric: tabular-nums; padding: 4px 7px; }
+  .empty { color: var(--text-muted); font-size: 13.5px; padding: 10px 2px; }
+  .toolbar { display: flex; gap: 8px; align-items: center; }
+
+  .h2-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .h2-row h2 { margin-bottom: 0; }
+  .h2-row + .table-scroll { margin-top: 14px; }
+
+  /* Home hero number */
+  .tile.hero { grid-column: 1 / -1; }
+  .tile.hero .value { font-size: 44px; letter-spacing: -0.02em; }
+
+  /* Bottom tab bar */
+  .tabbar {
+    position: fixed; left: 14px; right: 14px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    z-index: 10;
+    display: flex;
+    background: rgba(0,0,0,0.82);
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: 26px;
+    overflow: hidden;
+  }
+  .tab {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    background: none; border: none; border-radius: 0;
+    color: var(--text-muted); font-size: 11px; font-weight: 500;
+    padding: 10px 0 8px; cursor: pointer;
+  }
+  .tab svg { width: 22px; height: 22px; transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .tab { transition: color 0.2s ease; }
+  .tab:active { transform: none; }
+  .tab:focus { outline: none; }
+  .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; border-radius: 18px; }
+  .tab.active { color: var(--accent); }
+  .tab.active svg { transform: translateY(-2px) scale(1.1); }
+
+  /* View transitions — each page rises in smoothly */
+  .view-enter { animation: viewIn 0.32s cubic-bezier(0.22, 0.9, 0.3, 1); }
+  @keyframes viewIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: none; }
+  }
+  .tile .value.gain { text-shadow: 0 0 28px rgba(14,203,129,0.4); }
+  tbody td { transition: background-color 0.15s ease; }
+
+  /* Passcode lock screen */
+  #lock-screen {
+    position: fixed; inset: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+    background: radial-gradient(140% 480px at 50% -120px, rgba(14,203,129,0.18), transparent 72%) no-repeat, var(--page);
+    transition: opacity 0.4s ease, visibility 0.4s;
+  }
+  #lock-screen.unlocked { opacity: 0; visibility: hidden; pointer-events: none; }
+  .lock-card {
+    width: 100%; max-width: 340px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.7), rgba(0,0,0,0.48));
+    border: 1px solid var(--border);
+    border-radius: 26px;
+    padding: 30px 24px;
+    text-align: center;
+    animation: viewIn 0.4s cubic-bezier(0.22, 0.9, 0.3, 1);
+  }
+  .lock-icon { width: 52px; height: 52px; margin: 0 auto 12px; color: var(--accent); display: block; }
+  .lock-sub { font-size: 13.5px; color: var(--text-secondary); margin-top: 4px; }
+  .lock-card input { width: 100%; margin-top: 14px; padding: 12px; text-align: center; font-size: 17px; border-radius: 12px; }
+  .lock-btn { width: 100%; margin-top: 14px; padding: 12px; border-radius: 12px; }
+  .lock-err { color: var(--loss); font-size: 13px; margin-top: 12px; min-height: 1.2em; }
+  .lock-forgot { margin-top: 6px; font-size: 12.5px; color: var(--text-muted); background: none; border: none; text-decoration: underline; padding: 4px; }
+  .shake { animation: shake 0.4s ease; }
+  @keyframes shake {
+    20%, 60% { transform: translateX(-7px); }
+    40%, 80% { transform: translateX(7px); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+  /* Position cards (Holdings) */
+  #holdings-list { display: grid; gap: 12px; }
+  @media (min-width: 700px) { #holdings-list { grid-template-columns: 1fr 1fr; } }
+  .pos-card {
+    background: linear-gradient(180deg, rgba(0,0,0,0.7), rgba(0,0,0,0.46));
+    border: 1px solid rgba(14,203,129,0.22);
+    border-radius: 14px;
+    padding: 14px 16px;
+  }
+  .pos-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+  .pos-top .sym { font-size: 17px; }
+  .pos-unrl { font-weight: 600; font-size: 14px; color: var(--text-muted); }
+  .pos-unrl.gain { color: var(--gain); }
+  .pos-unrl.loss { color: var(--loss); }
+  .pos-grid { display: grid; grid-template-columns: 1fr 1fr 1.1fr; gap: 10px; align-items: end; }
+  .pos-label { display: block; font-size: 10.5px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+  .pos-big { font-size: 17px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .pos-grid .price-input { width: 100%; }
+  .pos-sub { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px; font-size: 12.5px; color: var(--text-secondary); }
+  .pos-card.closed { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 16px; opacity: 0.75; }
+
+  /* Growth chart */
+  .seg { display: inline-flex; gap: 2px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-radius: 12px; padding: 3px; }
+  .seg-btn {
+    background: none; border: none; color: var(--text-muted);
+    font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 9px; cursor: pointer;
+    transition: background-color 0.18s ease, color 0.18s ease;
+  }
+  .seg-btn.active { background: rgba(14,203,129,0.16); color: var(--accent-strong); }
+  .seg-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .g-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 4px 0 18px; }
+  .g-stat .g-stat-label { font-size: 10.5px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); }
+  .g-stat .g-stat-val { font-size: 19px; font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 3px; }
+
+  .g-legend { display: flex; gap: 16px; margin-bottom: 8px; }
+  .g-key { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-secondary); }
+  .g-swatch { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+  .g-swatch.value { background: var(--accent); }
+  .g-swatch.cost { background: repeating-linear-gradient(90deg, var(--text-muted) 0 4px, transparent 4px 7px); }
+
+  .g-chart { position: relative; width: 100%; touch-action: pan-y; }
+  .g-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .g-grid { stroke: var(--hairline); stroke-width: 1; }
+  .g-axis-label { fill: var(--text-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+  .g-area { fill: url(#g-fill); }
+  .g-line-value { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .g-line-cost { fill: none; stroke: var(--text-muted); stroke-width: 2; stroke-dasharray: 2 5; stroke-linecap: round; opacity: 0.9; }
+  .g-cross { stroke: rgba(233,245,238,0.35); stroke-width: 1; }
+  .g-dot-value { fill: var(--accent); stroke: #070d0a; stroke-width: 2; }
+  .g-dot-cost { fill: var(--text-secondary); stroke: #070d0a; stroke-width: 2; }
+  .g-end-label { font-size: 11px; font-weight: 650; font-variant-numeric: tabular-nums; }
+
+  .g-tooltip {
+    position: absolute; z-index: 5; pointer-events: none;
+    background: rgba(6,13,10,0.96); border: 1px solid var(--border); border-radius: 12px;
+    padding: 9px 11px; font-size: 12px; min-width: 132px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5); transform: translate(-50%, -112%);
+    transition: opacity 0.1s ease;
+  }
+  .g-tt-date { color: var(--text-muted); font-size: 11px; margin-bottom: 5px; }
+  .g-tt-row { display: flex; justify-content: space-between; gap: 14px; font-variant-numeric: tabular-nums; }
+  .g-tt-row + .g-tt-row { margin-top: 2px; }
+  .g-tt-row .k { color: var(--text-secondary); }
+  .g-tt-row .v { font-weight: 650; }
+
+  .g-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .chip-sym {
+    background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: var(--text-secondary);
+    font-size: 12.5px; font-weight: 600; padding: 6px 13px; border-radius: 999px; cursor: pointer;
+    transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+  }
+  .chip-sym.active { background: rgba(14,203,129,0.16); color: var(--accent-strong); border-color: rgba(14,203,129,0.4); }
+  .chip-sym:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .g-note { font-size: 11.5px; color: var(--text-muted); margin-top: 14px; line-height: 1.5; }
+
+  @media (max-width: 640px) {
+    body { padding-top: max(16px, env(safe-area-inset-top)); }
+    header { margin-bottom: 28px; }
+    .tiles { grid-template-columns: repeat(2, 1fr); gap: 18px 12px; }
+    .tile .value { font-size: 21px; }
+    .tile.hero .value { font-size: 36px; }
+    .card, .tiles { margin-bottom: 14px; }
+    form { grid-template-columns: repeat(2, 1fr); }
+    .field.grow { grid-column: 1 / -1; }
+    #submit-btn { grid-column: 1 / -1; padding: 11px; }
+    #cancel-edit { grid-column: 1 / -1; }
+    th, td { padding: 8px 7px; }
+    button { min-height: 40px; }
+    .btn-small { min-height: 34px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="lock-screen">
+  <div class="lock-card" id="lock-card">
+    <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10" width="15" height="10" rx="3.5"/><path d="M8.5 10V7.5a3.5 3.5 0 0 1 7 0V10"/><circle cx="12" cy="15" r="1.4" fill="currentColor" stroke="none"/></svg>
+    <h1>Stock Notes</h1>
+    <p class="lock-sub" id="lock-sub">Enter your passcode</p>
+    <input id="lock-pass" type="password" inputmode="numeric" maxlength="6" autocomplete="current-password" placeholder="Passcode" aria-label="Passcode">
+    <input id="lock-pass2" type="password" inputmode="numeric" maxlength="6" placeholder="Confirm passcode" aria-label="Confirm passcode" hidden>
+    <button class="btn-primary lock-btn" id="lock-btn">Unlock</button>
+    <div class="lock-err" id="lock-err"></div>
+    <button class="lock-forgot" id="lock-forgot" hidden>Forgot passcode? Reset app</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>Stock Notes</h1>
+      <div class="sub">Buy &amp; sell log · profit and loss calculated automatically</div>
+    </div>
+    <div class="toolbar">
+      <select id="currency" aria-label="Currency">
+        <option value="USD">USD $</option>
+        <option value="THB">THB ฿</option>
+        <option value="EUR">EUR €</option>
+        <option value="GBP">GBP £</option>
+        <option value="JPY">JPY ¥</option>
+      </select>
+    </div>
+  </header>
+
+  <div class="tiles" id="tiles"></div>
+
+  <div class="card" id="form-card" hidden>
+    <h2 id="form-title">Add a trade note</h2>
+    <form id="trade-form">
+      <div class="field">
+        <label for="f-type">Action</label>
+        <select id="f-type"><option value="buy">Buy</option><option value="sell">Sell</option></select>
+      </div>
+      <div class="field">
+        <label for="f-symbol">Symbol</label>
+        <input id="f-symbol" placeholder="AAPL" required maxlength="12" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="f-date">Date</label>
+        <input id="f-date" type="date" required>
+      </div>
+      <div class="field">
+        <label for="f-qty">Shares</label>
+        <input id="f-qty" type="number" min="0.000001" step="any" placeholder="10" required>
+      </div>
+      <div class="field">
+        <label for="f-price">Price / share</label>
+        <input id="f-price" type="number" min="0" step="any" placeholder="150.00" required>
+      </div>
+      <div class="field">
+        <label for="f-fee">Commission fee</label>
+        <input id="f-fee" type="number" min="0" step="any" placeholder="0">
+      </div>
+      <div class="field">
+        <label for="f-vat">VAT % on fee</label>
+        <input id="f-vat" type="number" min="0" step="any" placeholder="0">
+      </div>
+      <div class="field grow">
+        <label for="f-note">Note (optional)</label>
+        <input id="f-note" placeholder="Why did you make this trade?" maxlength="200">
+      </div>
+      <button type="submit" class="btn-primary" id="submit-btn">Add note</button>
+      <button type="button" class="btn-ghost" id="cancel-edit" style="display:none">Cancel</button>
+    </form>
+    <div class="vat-hint" id="vat-hint" hidden></div>
+    <div class="form-error" id="form-error" role="alert"></div>
+  </div>
+
+  <div class="card" id="holdings-card">
+    <h2>Holdings</h2>
+    <div id="holdings-list"></div>
+    <div class="empty" id="holdings-empty">No trades yet — tap Add below to log your first buy.</div>
+  </div>
+
+  <div class="card" id="history-card" hidden>
+    <div class="h2-row">
+      <h2>Trade history</h2>
+      <button class="btn-ghost btn-small" id="export-btn" title="Download all notes as a CSV file">Export CSV</button>
+    </div>
+    <div class="table-scroll">
+      <table id="history-table">
+        <thead>
+          <tr>
+            <th class="left">Date</th><th class="left">Action</th><th class="left">Symbol</th>
+            <th>Shares</th><th>Price</th><th>Fees</th><th>Total</th><th>Realized P/L</th>
+            <th class="left">Note</th><th class="left"></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="empty" id="history-empty">Nothing logged yet.</div>
+    </div>
+  </div>
+
+  <div class="card" id="growth-card" hidden>
+    <div class="h2-row">
+      <h2>Growth over time</h2>
+      <div class="seg" id="growth-range" role="group" aria-label="Time range">
+        <button class="seg-btn" data-range="30">1M</button>
+        <button class="seg-btn" data-range="90">3M</button>
+        <button class="seg-btn" data-range="365">1Y</button>
+        <button class="seg-btn active" data-range="all">All</button>
+      </div>
+    </div>
+
+    <div class="g-stats" id="growth-stats"></div>
+
+    <div class="g-legend" id="growth-legend">
+      <span class="g-key"><i class="g-swatch value"></i>Portfolio value</span>
+      <span class="g-key"><i class="g-swatch cost"></i>Invested (cost)</span>
+    </div>
+
+    <div class="g-chart" id="growth-chart">
+      <div class="g-tooltip" id="growth-tip" hidden></div>
+    </div>
+
+    <div class="g-chips" id="growth-chips"></div>
+
+    <p class="g-note">Each stock is valued at its most recently logged trade price; the “now” point uses the current prices you entered on Home. It’s an estimate, not live market data.</p>
+
+    <div class="empty" id="growth-empty">Log at least one trade to see your growth chart.</div>
+  </div>
+
+</div>
+
+<nav class="tabbar">
+  <button class="tab active" id="tab-home" aria-label="Home">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+    <span>Home</span>
+  </button>
+  <button class="tab" id="tab-add" aria-label="Add trade">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+    <span>Add</span>
+  </button>
+  <button class="tab" id="tab-growth" aria-label="Growth">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15l5-5 3 3 6-7"/><path d="M18 6h2v2"/></svg>
+    <span>Growth</span>
+  </button>
+  <button class="tab" id="tab-history" aria-label="History">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+    <span>History</span>
+  </button>
+</nav>
+
+<script>
+(() => {
+  'use strict';
+  const STORE_KEY = 'stock-notes-v1';
+  const $ = id => document.getElementById(id);
+
+  let state = load();
+  let editingId = null;
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (raw) {
+        const s = JSON.parse(raw);
+        const state = { transactions: s.transactions || [], prices: s.prices || {}, currency: s.currency || 'USD', vatRate: s.vatRate ?? 7 };
+        if (s.passHash) state.passHash = s.passHash;
+        return state;
+      }
+    } catch (e) { /* corrupted storage: start fresh */ }
+    return { transactions: [], prices: {}, currency: 'USD', vatRate: 7 };
+  }
+  function save() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+
+  const fmtMoney = v => {
+    const nf = new Intl.NumberFormat(undefined, { style: 'currency', currency: state.currency });
+    return nf.format(v);
+  };
+  const fmtSigned = v => (v > 0 ? '+' : '') + fmtMoney(v);
+  const fmtQty = v => new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 }).format(v);
+  const plClass = v => v > 1e-9 ? 'gain' : v < -1e-9 ? 'loss' : '';
+  const plArrow = v => v > 1e-9 ? '▲ ' : v < -1e-9 ? '▼ ' : '';
+
+  // Chronological order; ties keep insertion order via seq.
+  const sorted = txs => [...txs].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.seq - b.seq);
+
+  // A trade's total transaction charge = broker commission (fee) + VAT charged on it.
+  const feeTotal = tx => (tx.fee || 0) + (tx.vat || 0);
+
+  // Replays every transaction and computes P/L with the average-cost method.
+  // Buys fold fees+VAT into cost basis; sells realize (price - avgCost) * qty - fee - VAT.
+  function compute(txs) {
+    const positions = {}; // symbol -> { shares, costBasis, realized }
+    const rows = [];      // per-transaction results, in chronological order
+    for (const tx of sorted(txs)) {
+      const p = positions[tx.symbol] ??= { shares: 0, costBasis: 0, realized: 0 };
+      const row = { tx, realized: null, oversell: false };
+      if (tx.type === 'buy') {
+        p.shares += tx.qty;
+        p.costBasis += tx.qty * tx.price + feeTotal(tx);
+      } else {
+        const qty = Math.min(tx.qty, p.shares);
+        row.oversell = tx.qty > p.shares + 1e-9;
+        const avg = p.shares > 0 ? p.costBasis / p.shares : 0;
+        row.realized = qty * (tx.price - avg) - feeTotal(tx);
+        p.realized += row.realized;
+        p.costBasis -= qty * avg;
+        p.shares -= qty;
+        if (p.shares < 1e-9) { p.shares = 0; p.costBasis = 0; }
+      }
+      rows.push(row);
+    }
+    return { positions, rows };
+  }
+
+  function render() {
+    const { positions, rows } = compute(state.transactions);
+    $('currency').value = state.currency;
+    renderTiles(positions);
+    renderHoldings(positions);
+    renderHistory(rows);
+    if (!$('growth-card').hidden) renderChart();
+  }
+
+  function renderTiles(positions) {
+    let realized = 0, costOpen = 0, marketValue = 0, priced = 0, held = 0;
+    for (const [sym, p] of Object.entries(positions)) {
+      realized += p.realized;
+      if (p.shares > 0) {
+        held++;
+        costOpen += p.costBasis;
+        const cur = state.prices[sym];
+        if (cur != null) { priced++; marketValue += p.shares * cur; }
+      }
+    }
+    const unrealizedKnown = priced === held && held > 0;
+    const unrealized = marketValue - costOpen;
+    const tiles = [
+      { label: 'Total profit / loss',
+        value: priced > 0 || held === 0 ? fmtSigned(realized + (priced > 0 ? unrealized : 0)) : fmtSigned(realized),
+        cls: plClass(realized + (priced > 0 ? unrealized : 0)),
+        hint: 'Realized + unrealized', hero: true },
+      { label: 'Realized profit / loss', value: fmtSigned(realized), cls: plClass(realized), hint: 'From completed sells' },
+      { label: 'Unrealized profit / loss',
+        value: held === 0 ? '—' : (priced === 0 ? '—' : fmtSigned(unrealized)),
+        cls: priced > 0 ? plClass(unrealized) : '',
+        hint: held === 0 ? 'No open positions' : priced === 0 ? 'Enter current prices below' : unrealizedKnown ? 'Open positions vs. cost' : 'Partial — some prices missing' },
+      { label: 'Open cost basis', value: fmtMoney(costOpen), cls: '', hint: held + (held === 1 ? ' position held' : ' positions held') },
+    ];
+    $('tiles').innerHTML = tiles.map(t =>
+      `<div class="tile${t.hero ? ' hero' : ''}"><div class="label">${t.label}</div>` +
+      `<div class="value ${t.cls}">${t.value}</div><div class="hint">${t.hint}</div></div>`).join('');
+
+    // Count the hero total up/down to its new value
+    const totalNum = realized + (priced > 0 ? unrealized : 0);
+    const heroEl = $('tiles').querySelector('.tile.hero .value');
+    if (heroPrev !== null && heroEl && Math.abs(totalNum - heroPrev) > 1e-9 &&
+        !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      animateNumber(heroEl, heroPrev, totalNum);
+    }
+    heroPrev = totalNum;
+  }
+
+  let heroPrev = null;
+  function animateNumber(el, from, to) {
+    const dur = 600, t0 = performance.now();
+    const ease = x => 1 - Math.pow(1 - x, 3);
+    (function frame(now) {
+      const p = Math.min(1, (now - t0) / dur);
+      el.textContent = fmtSigned(from + (to - from) * ease(p));
+      if (p < 1) requestAnimationFrame(frame);
+    })(t0);
+  }
+
+  function renderHoldings(positions) {
+    const syms = Object.keys(positions).sort();
+    const list = $('holdings-list');
+    $('holdings-empty').style.display = syms.length ? 'none' : 'block';
+    list.innerHTML = syms.map(sym => {
+      const p = positions[sym];
+      if (p.shares <= 0) {
+        return `<div class="pos-card closed">
+          <span class="sym">${esc(sym)} <span class="badge-warn">closed</span></span>
+          <span class="pos-unrl ${plClass(p.realized)}">${plArrow(p.realized)}${fmtSigned(p.realized)} realized</span>
+        </div>`;
+      }
+      const avg = p.costBasis / p.shares;
+      const cur = state.prices[sym];
+      const mv = cur != null ? p.shares * cur : null;
+      const unrl = mv != null ? mv - p.costBasis : null;
+      return `<div class="pos-card">
+        <div class="pos-top">
+          <span class="sym">${esc(sym)}</span>
+          <span class="pos-unrl ${unrl != null ? plClass(unrl) : ''}">${unrl != null ? plArrow(unrl) + fmtSigned(unrl) : 'add price for P/L'}</span>
+        </div>
+        <div class="pos-grid">
+          <div><span class="pos-label">Avg cost</span><span class="pos-big">${fmtMoney(avg)}</span></div>
+          <div><span class="pos-label">Shares</span><span class="pos-big">${fmtQty(p.shares)}</span></div>
+          <div><span class="pos-label">Current price</span>
+            <input class="price-input" type="number" min="0" step="any" data-sym="${esc(sym)}"
+              value="${cur ?? ''}" placeholder="0.00" aria-label="Current price for ${esc(sym)}"></div>
+        </div>
+        <div class="pos-sub">
+          <span>Cost ${fmtMoney(p.costBasis)}</span>
+          ${mv != null ? `<span>Value ${fmtMoney(mv)}</span>` : ''}
+          ${p.realized !== 0 ? `<span class="${plClass(p.realized)}">Realized ${fmtSigned(p.realized)}</span>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+    list.querySelectorAll('.price-input').forEach(inp => {
+      inp.addEventListener('change', () => {
+        const v = parseFloat(inp.value);
+        if (isFinite(v) && v >= 0 && inp.value !== '') state.prices[inp.dataset.sym] = v;
+        else delete state.prices[inp.dataset.sym];
+        save(); render();
+      });
+    });
+  }
+
+  function renderHistory(rows) {
+    const tbody = $('history-table').querySelector('tbody');
+    $('history-empty').style.display = rows.length ? 'none' : 'block';
+    tbody.innerHTML = [...rows].reverse().map(({ tx, realized, oversell }) => `<tr>
+      <td class="left num">${esc(tx.date)}</td>
+      <td class="left"><span class="chip ${tx.type}">${tx.type === 'buy' ? 'Buy' : 'Sell'}</span>
+        ${oversell ? '<span class="badge-warn" title="Sell was larger than shares held at that date">check qty</span>' : ''}</td>
+      <td class="left sym">${esc(tx.symbol)}</td>
+      <td class="num">${fmtQty(tx.qty)}</td>
+      <td class="num">${fmtMoney(tx.price)}</td>
+      <td class="num"${tx.vat ? ` title="Fee ${esc(fmtMoney(tx.fee))} + VAT ${esc(fmtMoney(tx.vat))} (${esc(fmtQty(tx.vatRate))}%)"` : ''}>${feeTotal(tx) ? fmtMoney(feeTotal(tx)) : '—'}</td>
+      <td class="num">${fmtMoney(tx.qty * tx.price + (tx.type === 'buy' ? feeTotal(tx) : -feeTotal(tx)))}</td>
+      <td class="num ${realized != null ? plClass(realized) : ''}">${realized != null ? plArrow(realized) + fmtSigned(realized) : '—'}</td>
+      <td class="left note-cell" title="${esc(tx.note)}">${esc(tx.note) || '—'}</td>
+      <td class="left">
+        <button class="btn-ghost btn-small" data-edit="${tx.id}">Edit</button>
+        <button class="btn-ghost btn-small" data-del="${tx.id}">Delete</button>
+      </td>
+    </tr>`).join('');
+    tbody.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
+      const tx = state.transactions.find(t => t.id === b.dataset.del);
+      if (tx && confirm(`Delete this ${tx.type} of ${fmtQty(tx.qty)} ${tx.symbol}?`)) {
+        state.transactions = state.transactions.filter(t => t.id !== b.dataset.del);
+        save(); render();
+      }
+    }));
+    tbody.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => startEdit(b.dataset.edit)));
+  }
+
+  // Tab navigation: home = tiles + holdings, add = trade form, history = trade log
+  const VIEWS = {
+    home:    { tab: 'tab-home',    els: ['tiles', 'holdings-card'] },
+    add:     { tab: 'tab-add',     els: ['form-card'] },
+    growth:  { tab: 'tab-growth',  els: ['growth-card'] },
+    history: { tab: 'tab-history', els: ['history-card'] },
+  };
+  function showView(name) {
+    for (const [key, v] of Object.entries(VIEWS)) {
+      for (const id of v.els) {
+        const el = $(id);
+        const show = key === name;
+        if (show && el.hidden) {
+          el.hidden = false;
+          el.classList.remove('view-enter');
+          void el.offsetWidth; /* restart the animation */
+          el.classList.add('view-enter');
+        } else if (!show) {
+          el.hidden = true;
+        }
+      }
+      $(v.tab).classList.toggle('active', key === name);
+    }
+    window.scrollTo({ top: 0 });
+    if (name === 'growth') renderChart();
+  }
+  for (const [name, v] of Object.entries(VIEWS)) {
+    $(v.tab).addEventListener('click', () => showView(name));
+  }
+
+  /* ---------- Growth-over-time chart ---------- */
+  let chartSym = null;      // null = whole portfolio; otherwise a single symbol
+  let chartRange = 'all';   // 'all' | '30' | '90' | '365'  (days)
+  let chartGeom = null;     // scales + points, for the hover layer
+  const DAY = 86400000;
+  const parseDate = s => Date.parse(s + 'T00:00:00Z');
+  const isoFromT = ms => new Date(ms).toISOString().slice(0, 10);
+  const fmtCompact = v => {
+    try {
+      return new Intl.NumberFormat(undefined, { style: 'currency', currency: state.currency, notation: 'compact', maximumFractionDigits: 1 }).format(v);
+    } catch (e) { return fmtMoney(v); }
+  };
+
+  // Value of the book (or one symbol) as of date `d`, replaying every trade up to it.
+  // Holdings are marked at each symbol's last logged trade price; the "now" point
+  // uses the current prices entered on Home when they exist.
+  function pointAt(list, d, td) {
+    const upto = list.filter(t => t.date <= d);
+    const { positions } = compute(upto);
+    let mv = 0, cost = 0, realized = 0;
+    for (const [sym, p] of Object.entries(positions)) {
+      realized += p.realized;
+      if (p.shares > 1e-9) {
+        cost += p.costBasis;
+        let px = 0;
+        for (const t of list) if (t.symbol === sym && t.date <= d) px = t.price;
+        if (d === td && state.prices[sym] != null) px = state.prices[sym];
+        mv += p.shares * px;
+      }
+    }
+    return { date: d, t: parseDate(d), mv, cost, realized };
+  }
+
+  function samplePoints(list) {
+    const td = today();
+    const dates = list.map(t => t.date);
+    if (parseDate(td) >= parseDate(dates[dates.length - 1])) dates.push(td);
+    const uniq = [...new Set(dates)].sort();
+    return uniq.map(d => pointAt(list, d, td));
+  }
+
+  function chartData() {
+    const all = sorted(state.transactions).filter(t => !chartSym || t.symbol === chartSym);
+    if (!all.length) return null;
+    const pts = samplePoints(all);
+    let shown = pts;
+    if (chartRange !== 'all') {
+      const start = Math.max(Date.now() - (+chartRange) * DAY, pts[0].t);
+      shown = pts.filter(p => p.t >= start);
+      if ((!shown.length || shown[0].t > start) && pts[0].t < start) {
+        shown = [pointAt(all, isoFromT(start), today()), ...shown];
+      }
+      if (shown.length < 2) shown = pts.slice(-2);
+    }
+    return { shown, last: pts[pts.length - 1] };
+  }
+
+  function renderChart() {
+    const host = $('growth-chart');
+    const chips = $('growth-chips');
+    const data = chartData();
+
+    // Symbol filter chips (All + each symbol traded)
+    const syms = [...new Set(state.transactions.map(t => t.symbol))].sort();
+    chips.innerHTML = data ? ([['', 'All']].concat(syms.map(s => [s, s]))
+      .map(([val, label]) => `<button class="chip-sym${(chartSym || '') === val ? ' active' : ''}" data-sym="${esc(val)}">${esc(label)}</button>`).join('')) : '';
+
+    const empty = $('growth-empty');
+    const hide = el => { if (el) el.hidden = true; };
+    const show = el => { if (el) el.hidden = false; };
+    if (!data) {
+      host.querySelector('svg')?.remove();
+      $('growth-tip').hidden = true;
+      $('growth-stats').innerHTML = '';
+      $('growth-legend').style.visibility = 'hidden';
+      show(empty);
+      return;
+    }
+    hide(empty);
+    $('growth-legend').style.visibility = 'visible';
+
+    const { shown, last } = data;
+    const unreal = last.mv - last.cost;
+    const totalReturn = unreal + last.realized;
+    $('growth-stats').innerHTML = [
+      { label: chartSym ? chartSym + ' value' : 'Portfolio value', val: fmtMoney(last.mv), cls: '' },
+      { label: 'Invested (cost)', val: fmtMoney(last.cost), cls: '' },
+      { label: 'Total return', val: fmtSigned(totalReturn), cls: plClass(totalReturn) },
+    ].map(s => `<div class="g-stat"><div class="g-stat-label">${s.label}</div><div class="g-stat-val ${s.cls}">${s.val}</div></div>`).join('');
+
+    drawSvg(host, shown);
+  }
+
+  function drawSvg(host, pts) {
+    const W = Math.max(240, host.clientWidth || 320);
+    const H = 240;
+    const padL = 48, padR = 54, padT = 16, padB = 26;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+
+    const tMin = pts[0].t, tMax = pts[pts.length - 1].t;
+    const spanT = tMax - tMin || 1;
+    let yMax = 0;
+    for (const p of pts) yMax = Math.max(yMax, p.mv, p.cost);
+    yMax = yMax > 0 ? yMax * 1.12 : 1;
+
+    const X = t => padL + (pts.length === 1 ? plotW / 2 : (t - tMin) / spanT * plotW);
+    const Y = v => padT + plotH - (v / yMax) * plotH;
+    const baseY = padT + plotH;
+
+    const path = (key, close) => {
+      let d = '';
+      pts.forEach((p, i) => { d += (i ? 'L' : 'M') + X(p.t).toFixed(1) + ' ' + Y(p[key]).toFixed(1); });
+      if (close) d += 'L' + X(tMax).toFixed(1) + ' ' + baseY + 'L' + X(tMin).toFixed(1) + ' ' + baseY + 'Z';
+      return d;
+    };
+
+    // y gridlines
+    let grid = '';
+    for (let i = 0; i <= 2; i++) {
+      const v = yMax * i / 2, y = Y(v);
+      grid += `<line class="g-grid" x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}"/>`;
+      grid += `<text class="g-axis-label" x="${padL - 8}" y="${(y + 3).toFixed(1)}" text-anchor="end">${fmtCompact(v)}</text>`;
+    }
+    // x date labels (first, middle, last)
+    let xlab = '';
+    const xIdx = pts.length <= 1 ? [0] : [0, Math.floor((pts.length - 1) / 2), pts.length - 1];
+    [...new Set(xIdx)].forEach(i => {
+      const p = pts[i];
+      const anchor = i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle';
+      const dt = new Date(p.t);
+      const lbl = dt.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+      xlab += `<text class="g-axis-label" x="${X(p.t).toFixed(1)}" y="${H - 8}" text-anchor="${anchor}">${lbl}</text>`;
+    });
+
+    const single = pts.length === 1;
+    const area = single ? '' : `<path class="g-area" d="${path('mv', true)}"/>`;
+    const costLine = single ? '' : `<path class="g-line-cost" d="${path('cost')}"/>`;
+    const valLine = single ? '' : `<path class="g-line-value" d="${path('mv')}"/>`;
+    const dots = single
+      ? `<circle class="g-dot-cost" cx="${X(pts[0].t)}" cy="${Y(pts[0].cost)}" r="5"/><circle class="g-dot-value" cx="${X(pts[0].t)}" cy="${Y(pts[0].mv)}" r="5"/>`
+      : '';
+
+    // latest value label at the right edge
+    const lastP = pts[pts.length - 1];
+    const lyRaw = Y(lastP.mv);
+    const ly = Math.min(Math.max(lyRaw, padT + 6), baseY - 2);
+    const endLabel = `<text class="g-end-label" x="${W - padR + 8}" y="${ly.toFixed(1)}" fill="var(--accent)" dominant-baseline="middle">${fmtCompact(lastP.mv)}</text>`;
+
+    const svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Portfolio value over time chart">
+      <defs><linearGradient id="g-fill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.30"/>
+        <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.02"/>
+      </linearGradient></defs>
+      ${grid}${xlab}${area}${costLine}${valLine}${dots}${endLabel}
+      <g id="g-hover" style="display:none">
+        <line class="g-cross" y1="${padT}" y2="${baseY}"/>
+        <circle class="g-dot-cost" r="5"/><circle class="g-dot-value" r="5"/>
+      </g>
+    </svg>`;
+
+    host.querySelector('svg')?.remove();
+    host.insertAdjacentHTML('afterbegin', svg);
+
+    chartGeom = { pts, X, Y, padL, plotW, W, padR, baseY, tMin, tMax, spanT };
+    bindHover(host);
+  }
+
+  let hoverBound = false;
+  function bindHover(host) {
+    const tip = $('growth-tip');
+    const move = e => {
+      if (!chartGeom) return;
+      const svg = host.querySelector('svg'); if (!svg) return;
+      const rect = host.getBoundingClientRect();
+      const clientX = (e.touches ? e.touches[0].clientX : e.clientX);
+      const scale = chartGeom.W / rect.width;             // viewBox units per CSS px
+      const xUnits = (clientX - rect.left) * scale;
+      const { pts, X, Y } = chartGeom;
+      let best = 0, bestD = Infinity;
+      pts.forEach((p, i) => { const d = Math.abs(X(p.t) - xUnits); if (d < bestD) { bestD = d; best = i; } });
+      const p = pts[best];
+      const g = svg.querySelector('#g-hover');
+      g.style.display = '';
+      const cx = X(p.t);
+      g.querySelector('line').setAttribute('x1', cx); g.querySelector('line').setAttribute('x2', cx);
+      const dv = g.querySelector('.g-dot-value'), dc = g.querySelector('.g-dot-cost');
+      dv.setAttribute('cx', cx); dv.setAttribute('cy', Y(p.mv));
+      dc.setAttribute('cx', cx); dc.setAttribute('cy', Y(p.cost));
+      const gain = (p.mv - p.cost) + p.realized;
+      tip.hidden = false;
+      tip.innerHTML =
+        `<div class="g-tt-date">${new Date(p.t).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</div>` +
+        `<div class="g-tt-row"><span class="k">Value</span><span class="v">${fmtMoney(p.mv)}</span></div>` +
+        `<div class="g-tt-row"><span class="k">Invested</span><span class="v">${fmtMoney(p.cost)}</span></div>` +
+        `<div class="g-tt-row"><span class="k">Return</span><span class="v ${plClass(gain)}">${fmtSigned(gain)}</span></div>`;
+      const px = (cx / chartGeom.W) * rect.width;
+      tip.style.left = Math.min(Math.max(px, 66), rect.width - 66) + 'px';
+      tip.style.top = (Y(Math.max(p.mv, p.cost)) / chartGeom.W * rect.width) + 'px';
+    };
+    const leave = () => {
+      tip.hidden = true;
+      const g = host.querySelector('#g-hover'); if (g) g.style.display = 'none';
+    };
+    if (!hoverBound) {
+      host.addEventListener('pointermove', move);
+      host.addEventListener('pointerdown', move);
+      host.addEventListener('pointerleave', leave);
+      host.addEventListener('touchmove', move, { passive: true });
+      host.addEventListener('touchend', leave);
+      hoverBound = true;
+    }
+  }
+
+  // Range + symbol controls
+  $('growth-range').addEventListener('click', e => {
+    const b = e.target.closest('.seg-btn'); if (!b) return;
+    chartRange = b.dataset.range;
+    $('growth-range').querySelectorAll('.seg-btn').forEach(x => x.classList.toggle('active', x === b));
+    renderChart();
+  });
+  $('growth-chips').addEventListener('click', e => {
+    const b = e.target.closest('.chip-sym'); if (!b) return;
+    chartSym = b.dataset.sym || null;
+    renderChart();
+  });
+  let rzTimer;
+  window.addEventListener('resize', () => {
+    if ($('growth-card').hidden) return;
+    clearTimeout(rzTimer); rzTimer = setTimeout(renderChart, 120);
+  });
+
+  function startEdit(id) {
+    const tx = state.transactions.find(t => t.id === id);
+    if (!tx) return;
+    showView('add');
+    editingId = id;
+    $('f-type').value = tx.type;
+    $('f-symbol').value = tx.symbol;
+    $('f-date').value = tx.date;
+    $('f-qty').value = tx.qty;
+    $('f-price').value = tx.price;
+    $('f-fee').value = tx.fee || '';
+    $('f-vat').value = tx.vatRate != null ? tx.vatRate : '';
+    $('f-note').value = tx.note;
+    updateVatHint();
+    $('form-title').textContent = 'Edit trade note';
+    $('submit-btn').textContent = 'Save changes';
+    $('cancel-edit').style.display = '';
+    $('trade-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function stopEdit() {
+    editingId = null;
+    $('trade-form').reset();
+    $('f-date').value = today();
+    $('f-vat').value = state.vatRate || '';
+    updateVatHint();
+    $('form-title').textContent = 'Add a trade note';
+    $('submit-btn').textContent = 'Add note';
+    $('cancel-edit').style.display = 'none';
+    $('form-error').style.display = 'none';
+  }
+
+  // Live preview of the VAT charged on the commission fee.
+  function updateVatHint() {
+    const fee = parseFloat($('f-fee').value) || 0;
+    const rate = Math.max(0, parseFloat($('f-vat').value) || 0);
+    const hint = $('vat-hint');
+    if (fee <= 0 || rate <= 0) { hint.hidden = true; return; }
+    const vat = fee * rate / 100;
+    hint.hidden = false;
+    hint.innerHTML = `VAT ${fmtQty(rate)}% on fee: <b>${fmtMoney(vat)}</b> · total charge <b>${fmtMoney(fee + vat)}</b>`;
+  }
+  $('f-fee').addEventListener('input', updateVatHint);
+  $('f-vat').addEventListener('input', updateVatHint);
+
+  function today() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  }
+
+  $('trade-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const err = $('form-error');
+    err.style.display = 'none';
+    const tx = {
+      id: editingId ?? (Date.now().toString(36) + Math.random().toString(36).slice(2, 7)),
+      seq: editingId != null ? state.transactions.find(t => t.id === editingId).seq
+                             : (state.transactions.reduce((m, t) => Math.max(m, t.seq), 0) + 1),
+      type: $('f-type').value,
+      symbol: $('f-symbol').value.trim().toUpperCase(),
+      date: $('f-date').value,
+      qty: parseFloat($('f-qty').value),
+      price: parseFloat($('f-price').value),
+      fee: parseFloat($('f-fee').value) || 0,
+      note: $('f-note').value.trim(),
+    };
+    const vatRate = Math.max(0, parseFloat($('f-vat').value) || 0);
+    tx.vatRate = vatRate;
+    tx.vat = +(tx.fee * vatRate / 100).toFixed(2);
+    state.vatRate = vatRate;
+    if (!tx.symbol || !tx.date || !isFinite(tx.qty) || tx.qty <= 0 || !isFinite(tx.price) || tx.price < 0) {
+      err.textContent = 'Please fill in symbol, date, a positive number of shares, and a price.';
+      err.style.display = 'block';
+      return;
+    }
+    // Reject a sell that exceeds the shares held as of its date.
+    if (tx.type === 'sell') {
+      const trial = state.transactions.filter(t => t.id !== tx.id).concat([tx]);
+      const row = compute(trial).rows.find(r => r.tx.id === tx.id);
+      if (row.oversell) {
+        err.textContent = `You don't hold enough ${tx.symbol} shares on ${tx.date} to sell ${fmtQty(tx.qty)}. Log the buy first, or lower the quantity.`;
+        err.style.display = 'block';
+        return;
+      }
+    }
+    if (editingId != null) {
+      state.transactions = state.transactions.map(t => t.id === editingId ? tx : t);
+    } else {
+      state.transactions.push(tx);
+    }
+    save(); stopEdit(); render();
+    showView('home');
+  });
+
+  $('cancel-edit').addEventListener('click', stopEdit);
+
+  $('currency').addEventListener('change', () => {
+    state.currency = $('currency').value;
+    save(); render();
+  });
+
+  $('export-btn').addEventListener('click', () => {
+    const { rows } = compute(state.transactions);
+    const head = ['date', 'action', 'symbol', 'shares', 'price', 'fee', 'vat_rate', 'vat', 'total', 'realized_pl', 'note'];
+    const csvCell = v => {
+      const s = String(v ?? '');
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const lines = [head.join(',')].concat(rows.map(({ tx, realized }) => [
+      tx.date, tx.type, tx.symbol, tx.qty, tx.price, tx.fee, tx.vatRate ?? 0, (tx.vat || 0).toFixed(2),
+      (tx.qty * tx.price + (tx.type === 'buy' ? feeTotal(tx) : -feeTotal(tx))).toFixed(2),
+      realized != null ? realized.toFixed(2) : '', tx.note,
+    ].map(csvCell).join(',')));
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'stock-trading-notes.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  // ---- Passcode lock ----
+  async function sha256(s) {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+    return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  function initLock() {
+    const setMode = !state.passHash;
+    $('lock-sub').textContent = setMode
+      ? 'Create a 6-character passcode to protect your notes'
+      : 'Enter your passcode';
+    $('lock-btn').textContent = setMode ? 'Set passcode' : 'Unlock';
+    $('lock-pass2').hidden = setMode ? false : true;
+    $('lock-forgot').hidden = setMode;
+  }
+  function lockError(msg) {
+    $('lock-err').textContent = msg;
+    const card = $('lock-card');
+    card.classList.remove('shake');
+    void card.offsetWidth;
+    card.classList.add('shake');
+  }
+  async function tryUnlock() {
+    const pass = $('lock-pass').value;
+    if (!state.passHash) {
+      if (pass.length !== 6) return lockError('Passcode must be exactly 6 characters.');
+      if (pass !== $('lock-pass2').value) return lockError("Passcodes don't match — type the same code twice.");
+      state.passHash = await sha256(pass);
+      save();
+    } else if (await sha256(pass) !== state.passHash) {
+      $('lock-pass').value = '';
+      return lockError('Wrong passcode — try again.');
+    }
+    $('lock-pass').value = '';
+    $('lock-pass2').value = '';
+    $('lock-err').textContent = '';
+    $('lock-screen').classList.add('unlocked');
+  }
+  $('lock-btn').addEventListener('click', tryUnlock);
+  for (const id of ['lock-pass', 'lock-pass2']) {
+    $(id).addEventListener('keydown', e => { if (e.key === 'Enter') tryUnlock(); });
+  }
+  $('lock-forgot').addEventListener('click', () => {
+    if (confirm('Reset the app? This permanently erases ALL your trades, prices, and the passcode.') &&
+        confirm('Are you sure? This cannot be undone.')) {
+      localStorage.removeItem(STORE_KEY);
+      location.reload();
+    }
+  });
+  initLock();
+  $('lock-pass').focus();
+
+  $('f-date').value = today();
+  $('f-vat').value = state.vatRate || '';
+  render();
+
+  // Offline support when served over HTTPS (no-op when opened as a local file).
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+})();
+</script>
+</body>
+</html>
