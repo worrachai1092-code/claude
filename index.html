@@ -95,6 +95,8 @@
   .btn-ghost:hover { color: var(--text-primary); }
   .btn-small { font-size: 12.5px; padding: 4px 6px; }
   .form-error { color: var(--loss); font-size: 13px; margin-top: 10px; display: none; }
+  .vat-hint { color: var(--text-secondary); font-size: 12.5px; margin-top: 12px; }
+  .vat-hint b { color: var(--text-primary); font-variant-numeric: tabular-nums; font-weight: 650; }
 
   /* Tables */
   .table-scroll { overflow-x: auto; }
@@ -346,8 +348,12 @@
         <input id="f-price" type="number" min="0" step="any" placeholder="150.00" required>
       </div>
       <div class="field">
-        <label for="f-fee">Fees (optional)</label>
+        <label for="f-fee">Commission fee</label>
         <input id="f-fee" type="number" min="0" step="any" placeholder="0">
+      </div>
+      <div class="field">
+        <label for="f-vat">VAT % on fee</label>
+        <input id="f-vat" type="number" min="0" step="any" placeholder="0">
       </div>
       <div class="field grow">
         <label for="f-note">Note (optional)</label>
@@ -356,6 +362,7 @@
       <button type="submit" class="btn-primary" id="submit-btn">Add note</button>
       <button type="button" class="btn-ghost" id="cancel-edit" style="display:none">Cancel</button>
     </form>
+    <div class="vat-hint" id="vat-hint" hidden></div>
     <div class="form-error" id="form-error" role="alert"></div>
   </div>
 
@@ -449,12 +456,12 @@
       const raw = localStorage.getItem(STORE_KEY);
       if (raw) {
         const s = JSON.parse(raw);
-        const state = { transactions: s.transactions || [], prices: s.prices || {}, currency: s.currency || 'USD' };
+        const state = { transactions: s.transactions || [], prices: s.prices || {}, currency: s.currency || 'USD', vatRate: s.vatRate ?? 7 };
         if (s.passHash) state.passHash = s.passHash;
         return state;
       }
     } catch (e) { /* corrupted storage: start fresh */ }
-    return { transactions: [], prices: {}, currency: 'USD' };
+    return { transactions: [], prices: {}, currency: 'USD', vatRate: 7 };
   }
   function save() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
 
@@ -470,8 +477,11 @@
   // Chronological order; ties keep insertion order via seq.
   const sorted = txs => [...txs].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.seq - b.seq);
 
+  // A trade's total transaction charge = broker commission (fee) + VAT charged on it.
+  const feeTotal = tx => (tx.fee || 0) + (tx.vat || 0);
+
   // Replays every transaction and computes P/L with the average-cost method.
-  // Buys fold fees into cost basis; sells realize (price - avgCost) * qty - fee.
+  // Buys fold fees+VAT into cost basis; sells realize (price - avgCost) * qty - fee - VAT.
   function compute(txs) {
     const positions = {}; // symbol -> { shares, costBasis, realized }
     const rows = [];      // per-transaction results, in chronological order
@@ -480,12 +490,12 @@
       const row = { tx, realized: null, oversell: false };
       if (tx.type === 'buy') {
         p.shares += tx.qty;
-        p.costBasis += tx.qty * tx.price + tx.fee;
+        p.costBasis += tx.qty * tx.price + feeTotal(tx);
       } else {
         const qty = Math.min(tx.qty, p.shares);
         row.oversell = tx.qty > p.shares + 1e-9;
         const avg = p.shares > 0 ? p.costBasis / p.shares : 0;
-        row.realized = qty * (tx.price - avg) - tx.fee;
+        row.realized = qty * (tx.price - avg) - feeTotal(tx);
         p.realized += row.realized;
         p.costBasis -= qty * avg;
         p.shares -= qty;
@@ -610,8 +620,8 @@
       <td class="left sym">${esc(tx.symbol)}</td>
       <td class="num">${fmtQty(tx.qty)}</td>
       <td class="num">${fmtMoney(tx.price)}</td>
-      <td class="num">${tx.fee ? fmtMoney(tx.fee) : '—'}</td>
-      <td class="num">${fmtMoney(tx.qty * tx.price + (tx.type === 'buy' ? tx.fee : -tx.fee))}</td>
+      <td class="num"${tx.vat ? ` title="Fee ${esc(fmtMoney(tx.fee))} + VAT ${esc(fmtMoney(tx.vat))} (${esc(fmtQty(tx.vatRate))}%)"` : ''}>${feeTotal(tx) ? fmtMoney(feeTotal(tx)) : '—'}</td>
+      <td class="num">${fmtMoney(tx.qty * tx.price + (tx.type === 'buy' ? feeTotal(tx) : -feeTotal(tx)))}</td>
       <td class="num ${realized != null ? plClass(realized) : ''}">${realized != null ? plArrow(realized) + fmtSigned(realized) : '—'}</td>
       <td class="left note-cell" title="${esc(tx.note)}">${esc(tx.note) || '—'}</td>
       <td class="left">
@@ -901,7 +911,9 @@
     $('f-qty').value = tx.qty;
     $('f-price').value = tx.price;
     $('f-fee').value = tx.fee || '';
+    $('f-vat').value = tx.vatRate != null ? tx.vatRate : '';
     $('f-note').value = tx.note;
+    updateVatHint();
     $('form-title').textContent = 'Edit trade note';
     $('submit-btn').textContent = 'Save changes';
     $('cancel-edit').style.display = '';
@@ -912,11 +924,26 @@
     editingId = null;
     $('trade-form').reset();
     $('f-date').value = today();
+    $('f-vat').value = state.vatRate || '';
+    updateVatHint();
     $('form-title').textContent = 'Add a trade note';
     $('submit-btn').textContent = 'Add note';
     $('cancel-edit').style.display = 'none';
     $('form-error').style.display = 'none';
   }
+
+  // Live preview of the VAT charged on the commission fee.
+  function updateVatHint() {
+    const fee = parseFloat($('f-fee').value) || 0;
+    const rate = Math.max(0, parseFloat($('f-vat').value) || 0);
+    const hint = $('vat-hint');
+    if (fee <= 0 || rate <= 0) { hint.hidden = true; return; }
+    const vat = fee * rate / 100;
+    hint.hidden = false;
+    hint.innerHTML = `VAT ${fmtQty(rate)}% on fee: <b>${fmtMoney(vat)}</b> · total charge <b>${fmtMoney(fee + vat)}</b>`;
+  }
+  $('f-fee').addEventListener('input', updateVatHint);
+  $('f-vat').addEventListener('input', updateVatHint);
 
   function today() {
     const d = new Date();
@@ -944,6 +971,10 @@
       fee: parseFloat($('f-fee').value) || 0,
       note: $('f-note').value.trim(),
     };
+    const vatRate = Math.max(0, parseFloat($('f-vat').value) || 0);
+    tx.vatRate = vatRate;
+    tx.vat = +(tx.fee * vatRate / 100).toFixed(2);
+    state.vatRate = vatRate;
     if (!tx.symbol || !tx.date || !isFinite(tx.qty) || tx.qty <= 0 || !isFinite(tx.price) || tx.price < 0) {
       err.textContent = 'Please fill in symbol, date, a positive number of shares, and a price.';
       err.style.display = 'block';
@@ -977,14 +1008,14 @@
 
   $('export-btn').addEventListener('click', () => {
     const { rows } = compute(state.transactions);
-    const head = ['date', 'action', 'symbol', 'shares', 'price', 'fees', 'total', 'realized_pl', 'note'];
+    const head = ['date', 'action', 'symbol', 'shares', 'price', 'fee', 'vat_rate', 'vat', 'total', 'realized_pl', 'note'];
     const csvCell = v => {
       const s = String(v ?? '');
       return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
     };
     const lines = [head.join(',')].concat(rows.map(({ tx, realized }) => [
-      tx.date, tx.type, tx.symbol, tx.qty, tx.price, tx.fee,
-      (tx.qty * tx.price + (tx.type === 'buy' ? tx.fee : -tx.fee)).toFixed(2),
+      tx.date, tx.type, tx.symbol, tx.qty, tx.price, tx.fee, tx.vatRate ?? 0, (tx.vat || 0).toFixed(2),
+      (tx.qty * tx.price + (tx.type === 'buy' ? feeTotal(tx) : -feeTotal(tx))).toFixed(2),
       realized != null ? realized.toFixed(2) : '', tx.note,
     ].map(csvCell).join(',')));
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
@@ -1047,6 +1078,7 @@
   $('lock-pass').focus();
 
   $('f-date').value = today();
+  $('f-vat').value = state.vatRate || '';
   render();
 
   // Offline support when served over HTTPS (no-op when opened as a local file).
