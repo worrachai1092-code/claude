@@ -214,6 +214,62 @@
   .pos-sub { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px; font-size: 12.5px; color: var(--text-secondary); }
   .pos-card.closed { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 16px; opacity: 0.75; }
 
+  /* Growth chart */
+  .seg { display: inline-flex; gap: 2px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-radius: 12px; padding: 3px; }
+  .seg-btn {
+    background: none; border: none; color: var(--text-muted);
+    font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 9px; cursor: pointer;
+    transition: background-color 0.18s ease, color 0.18s ease;
+  }
+  .seg-btn.active { background: rgba(14,203,129,0.16); color: var(--accent-strong); }
+  .seg-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .g-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 4px 0 18px; }
+  .g-stat .g-stat-label { font-size: 10.5px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); }
+  .g-stat .g-stat-val { font-size: 19px; font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 3px; }
+
+  .g-legend { display: flex; gap: 16px; margin-bottom: 8px; }
+  .g-key { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-secondary); }
+  .g-swatch { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+  .g-swatch.value { background: var(--accent); }
+  .g-swatch.cost { background: repeating-linear-gradient(90deg, var(--text-muted) 0 4px, transparent 4px 7px); }
+
+  .g-chart { position: relative; width: 100%; touch-action: pan-y; }
+  .g-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .g-grid { stroke: var(--hairline); stroke-width: 1; }
+  .g-axis-label { fill: var(--text-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+  .g-area { fill: url(#g-fill); }
+  .g-line-value { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .g-line-cost { fill: none; stroke: var(--text-muted); stroke-width: 2; stroke-dasharray: 2 5; stroke-linecap: round; opacity: 0.9; }
+  .g-cross { stroke: rgba(233,245,238,0.35); stroke-width: 1; }
+  .g-dot-value { fill: var(--accent); stroke: #070d0a; stroke-width: 2; }
+  .g-dot-cost { fill: var(--text-secondary); stroke: #070d0a; stroke-width: 2; }
+  .g-end-label { font-size: 11px; font-weight: 650; font-variant-numeric: tabular-nums; }
+
+  .g-tooltip {
+    position: absolute; z-index: 5; pointer-events: none;
+    background: rgba(6,13,10,0.96); border: 1px solid var(--border); border-radius: 12px;
+    padding: 9px 11px; font-size: 12px; min-width: 132px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5); transform: translate(-50%, -112%);
+    transition: opacity 0.1s ease;
+  }
+  .g-tt-date { color: var(--text-muted); font-size: 11px; margin-bottom: 5px; }
+  .g-tt-row { display: flex; justify-content: space-between; gap: 14px; font-variant-numeric: tabular-nums; }
+  .g-tt-row + .g-tt-row { margin-top: 2px; }
+  .g-tt-row .k { color: var(--text-secondary); }
+  .g-tt-row .v { font-weight: 650; }
+
+  .g-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .chip-sym {
+    background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: var(--text-secondary);
+    font-size: 12.5px; font-weight: 600; padding: 6px 13px; border-radius: 999px; cursor: pointer;
+    transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+  }
+  .chip-sym.active { background: rgba(14,203,129,0.16); color: var(--accent-strong); border-color: rgba(14,203,129,0.4); }
+  .chip-sym:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .g-note { font-size: 11.5px; color: var(--text-muted); margin-top: 14px; line-height: 1.5; }
+
   @media (max-width: 640px) {
     body { padding-top: max(16px, env(safe-area-inset-top)); }
     header { margin-bottom: 28px; }
@@ -329,6 +385,35 @@
     </div>
   </div>
 
+  <div class="card" id="growth-card" hidden>
+    <div class="h2-row">
+      <h2>Growth over time</h2>
+      <div class="seg" id="growth-range" role="group" aria-label="Time range">
+        <button class="seg-btn" data-range="30">1M</button>
+        <button class="seg-btn" data-range="90">3M</button>
+        <button class="seg-btn" data-range="365">1Y</button>
+        <button class="seg-btn active" data-range="all">All</button>
+      </div>
+    </div>
+
+    <div class="g-stats" id="growth-stats"></div>
+
+    <div class="g-legend" id="growth-legend">
+      <span class="g-key"><i class="g-swatch value"></i>Portfolio value</span>
+      <span class="g-key"><i class="g-swatch cost"></i>Invested (cost)</span>
+    </div>
+
+    <div class="g-chart" id="growth-chart">
+      <div class="g-tooltip" id="growth-tip" hidden></div>
+    </div>
+
+    <div class="g-chips" id="growth-chips"></div>
+
+    <p class="g-note">Each stock is valued at its most recently logged trade price; the “now” point uses the current prices you entered on Home. It’s an estimate, not live market data.</p>
+
+    <div class="empty" id="growth-empty">Log at least one trade to see your growth chart.</div>
+  </div>
+
 </div>
 
 <nav class="tabbar">
@@ -339,6 +424,10 @@
   <button class="tab" id="tab-add" aria-label="Add trade">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
     <span>Add</span>
+  </button>
+  <button class="tab" id="tab-growth" aria-label="Growth">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15l5-5 3 3 6-7"/><path d="M18 6h2v2"/></svg>
+    <span>Growth</span>
   </button>
   <button class="tab" id="tab-history" aria-label="History">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
@@ -413,6 +502,7 @@
     renderTiles(positions);
     renderHoldings(positions);
     renderHistory(rows);
+    if (!$('growth-card').hidden) renderChart();
   }
 
   function renderTiles(positions) {
@@ -543,6 +633,7 @@
   const VIEWS = {
     home:    { tab: 'tab-home',    els: ['tiles', 'holdings-card'] },
     add:     { tab: 'tab-add',     els: ['form-card'] },
+    growth:  { tab: 'tab-growth',  els: ['growth-card'] },
     history: { tab: 'tab-history', els: ['history-card'] },
   };
   function showView(name) {
@@ -562,10 +653,242 @@
       $(v.tab).classList.toggle('active', key === name);
     }
     window.scrollTo({ top: 0 });
+    if (name === 'growth') renderChart();
   }
   for (const [name, v] of Object.entries(VIEWS)) {
     $(v.tab).addEventListener('click', () => showView(name));
   }
+
+  /* ---------- Growth-over-time chart ---------- */
+  let chartSym = null;      // null = whole portfolio; otherwise a single symbol
+  let chartRange = 'all';   // 'all' | '30' | '90' | '365'  (days)
+  let chartGeom = null;     // scales + points, for the hover layer
+  const DAY = 86400000;
+  const parseDate = s => Date.parse(s + 'T00:00:00Z');
+  const isoFromT = ms => new Date(ms).toISOString().slice(0, 10);
+  const fmtCompact = v => {
+    try {
+      return new Intl.NumberFormat(undefined, { style: 'currency', currency: state.currency, notation: 'compact', maximumFractionDigits: 1 }).format(v);
+    } catch (e) { return fmtMoney(v); }
+  };
+
+  // Value of the book (or one symbol) as of date `d`, replaying every trade up to it.
+  // Holdings are marked at each symbol's last logged trade price; the "now" point
+  // uses the current prices entered on Home when they exist.
+  function pointAt(list, d, td) {
+    const upto = list.filter(t => t.date <= d);
+    const { positions } = compute(upto);
+    let mv = 0, cost = 0, realized = 0;
+    for (const [sym, p] of Object.entries(positions)) {
+      realized += p.realized;
+      if (p.shares > 1e-9) {
+        cost += p.costBasis;
+        let px = 0;
+        for (const t of list) if (t.symbol === sym && t.date <= d) px = t.price;
+        if (d === td && state.prices[sym] != null) px = state.prices[sym];
+        mv += p.shares * px;
+      }
+    }
+    return { date: d, t: parseDate(d), mv, cost, realized };
+  }
+
+  function samplePoints(list) {
+    const td = today();
+    const dates = list.map(t => t.date);
+    if (parseDate(td) >= parseDate(dates[dates.length - 1])) dates.push(td);
+    const uniq = [...new Set(dates)].sort();
+    return uniq.map(d => pointAt(list, d, td));
+  }
+
+  function chartData() {
+    const all = sorted(state.transactions).filter(t => !chartSym || t.symbol === chartSym);
+    if (!all.length) return null;
+    const pts = samplePoints(all);
+    let shown = pts;
+    if (chartRange !== 'all') {
+      const start = Math.max(Date.now() - (+chartRange) * DAY, pts[0].t);
+      shown = pts.filter(p => p.t >= start);
+      if ((!shown.length || shown[0].t > start) && pts[0].t < start) {
+        shown = [pointAt(all, isoFromT(start), today()), ...shown];
+      }
+      if (shown.length < 2) shown = pts.slice(-2);
+    }
+    return { shown, last: pts[pts.length - 1] };
+  }
+
+  function renderChart() {
+    const host = $('growth-chart');
+    const chips = $('growth-chips');
+    const data = chartData();
+
+    // Symbol filter chips (All + each symbol traded)
+    const syms = [...new Set(state.transactions.map(t => t.symbol))].sort();
+    chips.innerHTML = data ? ([['', 'All']].concat(syms.map(s => [s, s]))
+      .map(([val, label]) => `<button class="chip-sym${(chartSym || '') === val ? ' active' : ''}" data-sym="${esc(val)}">${esc(label)}</button>`).join('')) : '';
+
+    const empty = $('growth-empty');
+    const hide = el => { if (el) el.hidden = true; };
+    const show = el => { if (el) el.hidden = false; };
+    if (!data) {
+      host.querySelector('svg')?.remove();
+      $('growth-tip').hidden = true;
+      $('growth-stats').innerHTML = '';
+      $('growth-legend').style.visibility = 'hidden';
+      show(empty);
+      return;
+    }
+    hide(empty);
+    $('growth-legend').style.visibility = 'visible';
+
+    const { shown, last } = data;
+    const unreal = last.mv - last.cost;
+    const totalReturn = unreal + last.realized;
+    $('growth-stats').innerHTML = [
+      { label: chartSym ? chartSym + ' value' : 'Portfolio value', val: fmtMoney(last.mv), cls: '' },
+      { label: 'Invested (cost)', val: fmtMoney(last.cost), cls: '' },
+      { label: 'Total return', val: fmtSigned(totalReturn), cls: plClass(totalReturn) },
+    ].map(s => `<div class="g-stat"><div class="g-stat-label">${s.label}</div><div class="g-stat-val ${s.cls}">${s.val}</div></div>`).join('');
+
+    drawSvg(host, shown);
+  }
+
+  function drawSvg(host, pts) {
+    const W = Math.max(240, host.clientWidth || 320);
+    const H = 240;
+    const padL = 48, padR = 54, padT = 16, padB = 26;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+
+    const tMin = pts[0].t, tMax = pts[pts.length - 1].t;
+    const spanT = tMax - tMin || 1;
+    let yMax = 0;
+    for (const p of pts) yMax = Math.max(yMax, p.mv, p.cost);
+    yMax = yMax > 0 ? yMax * 1.12 : 1;
+
+    const X = t => padL + (pts.length === 1 ? plotW / 2 : (t - tMin) / spanT * plotW);
+    const Y = v => padT + plotH - (v / yMax) * plotH;
+    const baseY = padT + plotH;
+
+    const path = (key, close) => {
+      let d = '';
+      pts.forEach((p, i) => { d += (i ? 'L' : 'M') + X(p.t).toFixed(1) + ' ' + Y(p[key]).toFixed(1); });
+      if (close) d += 'L' + X(tMax).toFixed(1) + ' ' + baseY + 'L' + X(tMin).toFixed(1) + ' ' + baseY + 'Z';
+      return d;
+    };
+
+    // y gridlines
+    let grid = '';
+    for (let i = 0; i <= 2; i++) {
+      const v = yMax * i / 2, y = Y(v);
+      grid += `<line class="g-grid" x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}"/>`;
+      grid += `<text class="g-axis-label" x="${padL - 8}" y="${(y + 3).toFixed(1)}" text-anchor="end">${fmtCompact(v)}</text>`;
+    }
+    // x date labels (first, middle, last)
+    let xlab = '';
+    const xIdx = pts.length <= 1 ? [0] : [0, Math.floor((pts.length - 1) / 2), pts.length - 1];
+    [...new Set(xIdx)].forEach(i => {
+      const p = pts[i];
+      const anchor = i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle';
+      const dt = new Date(p.t);
+      const lbl = dt.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+      xlab += `<text class="g-axis-label" x="${X(p.t).toFixed(1)}" y="${H - 8}" text-anchor="${anchor}">${lbl}</text>`;
+    });
+
+    const single = pts.length === 1;
+    const area = single ? '' : `<path class="g-area" d="${path('mv', true)}"/>`;
+    const costLine = single ? '' : `<path class="g-line-cost" d="${path('cost')}"/>`;
+    const valLine = single ? '' : `<path class="g-line-value" d="${path('mv')}"/>`;
+    const dots = single
+      ? `<circle class="g-dot-cost" cx="${X(pts[0].t)}" cy="${Y(pts[0].cost)}" r="5"/><circle class="g-dot-value" cx="${X(pts[0].t)}" cy="${Y(pts[0].mv)}" r="5"/>`
+      : '';
+
+    // latest value label at the right edge
+    const lastP = pts[pts.length - 1];
+    const lyRaw = Y(lastP.mv);
+    const ly = Math.min(Math.max(lyRaw, padT + 6), baseY - 2);
+    const endLabel = `<text class="g-end-label" x="${W - padR + 8}" y="${ly.toFixed(1)}" fill="var(--accent)" dominant-baseline="middle">${fmtCompact(lastP.mv)}</text>`;
+
+    const svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Portfolio value over time chart">
+      <defs><linearGradient id="g-fill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.30"/>
+        <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.02"/>
+      </linearGradient></defs>
+      ${grid}${xlab}${area}${costLine}${valLine}${dots}${endLabel}
+      <g id="g-hover" style="display:none">
+        <line class="g-cross" y1="${padT}" y2="${baseY}"/>
+        <circle class="g-dot-cost" r="5"/><circle class="g-dot-value" r="5"/>
+      </g>
+    </svg>`;
+
+    host.querySelector('svg')?.remove();
+    host.insertAdjacentHTML('afterbegin', svg);
+
+    chartGeom = { pts, X, Y, padL, plotW, W, padR, baseY, tMin, tMax, spanT };
+    bindHover(host);
+  }
+
+  let hoverBound = false;
+  function bindHover(host) {
+    const tip = $('growth-tip');
+    const move = e => {
+      if (!chartGeom) return;
+      const svg = host.querySelector('svg'); if (!svg) return;
+      const rect = host.getBoundingClientRect();
+      const clientX = (e.touches ? e.touches[0].clientX : e.clientX);
+      const scale = chartGeom.W / rect.width;             // viewBox units per CSS px
+      const xUnits = (clientX - rect.left) * scale;
+      const { pts, X, Y } = chartGeom;
+      let best = 0, bestD = Infinity;
+      pts.forEach((p, i) => { const d = Math.abs(X(p.t) - xUnits); if (d < bestD) { bestD = d; best = i; } });
+      const p = pts[best];
+      const g = svg.querySelector('#g-hover');
+      g.style.display = '';
+      const cx = X(p.t);
+      g.querySelector('line').setAttribute('x1', cx); g.querySelector('line').setAttribute('x2', cx);
+      const dv = g.querySelector('.g-dot-value'), dc = g.querySelector('.g-dot-cost');
+      dv.setAttribute('cx', cx); dv.setAttribute('cy', Y(p.mv));
+      dc.setAttribute('cx', cx); dc.setAttribute('cy', Y(p.cost));
+      const gain = (p.mv - p.cost) + p.realized;
+      tip.hidden = false;
+      tip.innerHTML =
+        `<div class="g-tt-date">${new Date(p.t).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</div>` +
+        `<div class="g-tt-row"><span class="k">Value</span><span class="v">${fmtMoney(p.mv)}</span></div>` +
+        `<div class="g-tt-row"><span class="k">Invested</span><span class="v">${fmtMoney(p.cost)}</span></div>` +
+        `<div class="g-tt-row"><span class="k">Return</span><span class="v ${plClass(gain)}">${fmtSigned(gain)}</span></div>`;
+      const px = (cx / chartGeom.W) * rect.width;
+      tip.style.left = Math.min(Math.max(px, 66), rect.width - 66) + 'px';
+      tip.style.top = (Y(Math.max(p.mv, p.cost)) / chartGeom.W * rect.width) + 'px';
+    };
+    const leave = () => {
+      tip.hidden = true;
+      const g = host.querySelector('#g-hover'); if (g) g.style.display = 'none';
+    };
+    if (!hoverBound) {
+      host.addEventListener('pointermove', move);
+      host.addEventListener('pointerdown', move);
+      host.addEventListener('pointerleave', leave);
+      host.addEventListener('touchmove', move, { passive: true });
+      host.addEventListener('touchend', leave);
+      hoverBound = true;
+    }
+  }
+
+  // Range + symbol controls
+  $('growth-range').addEventListener('click', e => {
+    const b = e.target.closest('.seg-btn'); if (!b) return;
+    chartRange = b.dataset.range;
+    $('growth-range').querySelectorAll('.seg-btn').forEach(x => x.classList.toggle('active', x === b));
+    renderChart();
+  });
+  $('growth-chips').addEventListener('click', e => {
+    const b = e.target.closest('.chip-sym'); if (!b) return;
+    chartSym = b.dataset.sym || null;
+    renderChart();
+  });
+  let rzTimer;
+  window.addEventListener('resize', () => {
+    if ($('growth-card').hidden) return;
+    clearTimeout(rzTimer); rzTimer = setTimeout(renderChart, 120);
+  });
 
   function startEdit(id) {
     const tx = state.transactions.find(t => t.id === id);
